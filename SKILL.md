@@ -25,7 +25,7 @@ allowed-tools: Bash(*) Read(*) Write(*) Grep(*) Glob(*) Agent(*)
 - **Platform-Specific Bug Validation** (pre-submission quality gate)
 
 > **Usage**: `/dewaxguard [light|core|thorough] [path] [options]`
-> **Self-Improvement**: `/dewaxguard improve` (post-audit, requires ground truth) | `/dewaxguard consolidate` (anti-bloat sweep)
+> **Self-Improvement**: `/dewaxguard improve` | `/dewaxguard batch-import` | `/dewaxguard benchmark` | `/dewaxguard consolidate`
 > **Languages**: Solidity, Rust/Solana, Move/Aptos, Move/Sui
 > **Platforms**: Code4rena, Sherlock, Cantina, Immunefi, HackenProof
 
@@ -56,6 +56,7 @@ Phase 5a:   Code Trace (all findings)
 Phase 5b:   Unit PoC (model/math tests)
 Phase 5c:   Mainnet Fork PoC (Critical/High/Medium)
 Phase 5d:   Bug Validator (platform-specific scoring)
+Phase 5e:   Self-Calibration (automatic — agent FP rates, confidence accuracy)
 Phase 6:    Report (submission-ready)
 ```
 
@@ -254,8 +255,16 @@ dewaxguard/
 ├── MEMORY.md                         # Metrics ledger (one line per audit)
 ├── CHANGELOG.md                      # Version history
 ├── improve/
-│   ├── IMPROVE.md                    # Self-improvement protocol
+│   ├── IMPROVE.md                    # Post-audit improvement (needs ground truth)
+│   ├── SELF-CALIBRATE.md             # Auto-runs after each audit (no ground truth)
+│   ├── BATCH-IMPORT.md               # Bulk-process public audit reports
+│   ├── BENCHMARK.md                  # Regression testing with known-vulnerable contracts
 │   └── CONSOLIDATE.md                # Anti-bloat sweep
+├── benchmarks/                       # Known-vulnerable contracts for regression testing
+│   ├── manifest.json                 # Registry of all benchmarks
+│   ├── evm/                          # EVM benchmarks (reentrancy, share-inflation, etc.)
+│   ├── solana/                       # Solana benchmarks (missing-signer, pda-substitution)
+│   └── sui/                          # Sui benchmarks (shared-object-race)
 ├── agents/
 │   ├── hacking-agents/               # Phase 3: 8 breadth agents
 │   │   ├── vector-scan-agent.md

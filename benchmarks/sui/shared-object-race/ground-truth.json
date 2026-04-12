@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "severity": "Medium",
+      "class": "concurrency",
+      "location": { "file": "src/pool.move", "line_start": 21, "line_end": 29 },
+      "description": "deposit() on shared Pool object has read-then-write pattern — concurrent transactions can cause incorrect total_depositors and reward_per_depositor calculations",
+      "must_detect": true
+    }
+  ],
+  "false_positive_traps": [
+    {
+      "description": "get_reward_estimate() is read-only with immutable reference — no race condition possible, should NOT be flagged",
+      "location": { "file": "src/pool.move", "line_start": 32, "line_end": 34 }
+    }
+  ]
+}
