@@ -21,7 +21,7 @@
 **Validation Score**: XX/100 (platform: {C4/Sherlock/etc})
 
 **Description**: [Clear explanation with code snippet]
-**Impact**: [Quantified where possible]
+**Impact**: [Quantified — see Platform Impact Rules below]
 **PoC Result**: [Fork test output or code trace]
 **Recommendation**: [Fix with diff]
 ```
@@ -45,3 +45,23 @@
 ## Informational
 ## Priority Remediation Order
 ```
+
+## Platform Impact Quantification (MANDATORY for every Medium+ finding)
+
+### Sherlock
+- Concrete dollar amount of loss (e.g., "signer loses $10,000")
+- Percentage of principal/yield/fees (e.g., "100% of principal")
+- Explicit threshold: "Exceeds Sherlock Medium threshold of >0.01% AND >$10"
+- For DoS: permanent vs temporary, whether core functionality is broken
+
+### Code4rena
+- High: quantify "direct loss of funds" with realistic scenario
+- Medium: state conditions required and their likelihood
+
+### Cantina
+- Map to Impact x Likelihood matrix explicitly
+- State both axes and the resulting severity cell
+
+### Immunefi
+- Map to specific impact category from their severity table
+- Include realistic attack cost vs extracted value

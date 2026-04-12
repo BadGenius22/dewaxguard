@@ -42,3 +42,12 @@ description: one sentence explaining trail and what remains unverified
 ```
 
 The `group_key` enables deduplication: `ContractName | functionName | bug_class`. Agents may add custom fields.
+
+## Inconsistency check (MANDATORY for every FINDING)
+
+For each FINDING, grep the full codebase for the CORRECT version of the pattern:
+- Missing SafeERC20 → grep for `forceApprove|safeApprove|safeTransfer` in other files
+- Missing access control → grep for the same modifier used on similar functions
+- Missing validation → grep for the same validation in paired/sibling functions
+If the correct pattern exists elsewhere, add to proof: `precedent: {File}:{Line} uses {correct pattern}`
+This transforms "missing feature" into "inconsistency bug" — much harder to invalidate.

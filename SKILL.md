@@ -56,6 +56,7 @@ Phase 5a:   Code Trace (all findings)
 Phase 5b:   Unit PoC (model/math tests)
 Phase 5c:   Mainnet Fork PoC (Critical/High/Medium)
 Phase 5d:   Bug Validator (platform-specific scoring)
+Phase 5d.1: Submission Hardening (fix deductions > 5pts, re-score until >= 85)
 Phase 5e:   Self-Calibration (automatic — agent FP rates, confidence accuracy)
 Phase 6:    Report (submission-ready)
 ```
@@ -211,6 +212,21 @@ Finding X-NN: [Title]
 ├─ Verdict: ✅ LIKELY VALID / ⚠️ BORDERLINE / ❌ LIKELY REJECTED
 └─ Improvements: [if borderline]
 ```
+
+---
+
+## PHASE 5d.1: SUBMISSION HARDENING
+
+For each finding scored **< 85** by the bug validator:
+
+1. Read the validator's deduction breakdown
+2. For each deduction > 5 points, apply the targeted fix:
+   - **"AI-21/weird token risk"** → Run Inconsistency Check: grep codebase for correct pattern used elsewhere. Add `precedent:` evidence.
+   - **"Trust debate risk"** → Add Trust Boundary section: role type (admin/infra/user), compromise impact, immune paths.
+   - **"Loss not quantified"** → Add Platform Threshold math from `rules/report-template.md` quantification rules.
+   - **"Likely dup"** → Ensure finding has differentiating evidence (fork PoC, unique analysis angle, inconsistency proof).
+   - **"Missing PoC"** → Escalate to Phase 5c fork PoC queue.
+3. Re-score after hardening. If still < 70 → downgrade to LEAD.
 
 ---
 

@@ -18,6 +18,16 @@ Other agents cover known patterns, math, state consistency, and economics. You b
 
 **Abuse delegatecall/proxy.** Collide storage layouts. Self-destruct implementation contracts. Collide admin slots with business logic storage.
 
+## Trust boundary analysis (meta-tx / relay protocols)
+
+When the protocol uses EIP-712 signatures with relay/provider roles:
+1. Map each role: Is it admin (governance), infrastructure (relay), or user (signer)?
+2. For each role: What happens if their key is compromised? What can the attacker do?
+3. Identify immune paths: Does a self-relay/direct-call path exist that bypasses the role?
+4. Check signature binding: Does the EIP-712 digest bind ALL parameters that control
+   execution? (target contract address, function selector, all arguments). Any unbound
+   parameter is a substitution vector.
+
 ## Output fields
 
 Add to FINDINGs:

@@ -1,5 +1,13 @@
 # DewaxGuard Changelog
 
+## [1.3.0] - 2026-04-12
+- Added Inconsistency Scanner: depth/breadth agents grep codebase for correct pattern used elsewhere (shared-rules.md)
+- Added Platform Threshold Enforcement: mandatory quantification rules per platform in report-template.md
+- Added Trust Boundary Mapping: meta-tx/relay role analysis in access-control-agent.md
+- Added Caller-Controlled Callback Tracing: attacker-supplied target trace in execution-trace-agent.md
+- Added Submission Hardening Pass (Phase 5d.1): feedback loop from bug validator to fix deductions before report
+- First audit metrics: Superfluid ClearMacro (EVM), 2M found, both scored >90 after hardening
+
 ## [1.2.0] - 2026-04-12
 - Added self-calibration: Phase 5e auto-analyzes agent FP rates, confidence accuracy after every audit
 - Added batch import: `/dewaxguard batch-import` processes multiple public contest results in one session

@@ -14,6 +14,14 @@ Other agents cover known patterns, arithmetic, permissions, economics, invariant
 - **Stale reads.** Read a value, modify state or make an external call, then exploit the now-stale value.
 - **Partial state updates.** Find functions that update coupled variables but can revert or return early mid-update. Exploit the inconsistent intermediate state.
 
+## Caller-controlled target tracing
+
+When msg.sender or a function parameter determines WHICH contract is called:
+- All callbacks on that contract (hooks, postCheck, fallback, view calls) are attacker-controlled
+- An attacker-controlled callback that is a no-op provides ZERO protection
+- Trace: who supplies the target address? Can they substitute a different contract?
+  If yes → every callback on that target is suspect
+
 ## Across transactions
 
 - **Wrong-state execution.** Execute functions in protocol states they were never designed for.
