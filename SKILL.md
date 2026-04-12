@@ -1,3 +1,11 @@
+---
+name: dewaxguard
+description: "Multi-language smart contract security auditor with 8 hacking agents, Nemesis cross-feed, mainnet fork PoC verification, and platform-specific bug validation. Supports EVM/Solidity, Solana/Rust, Aptos/Move, Sui/Move. Platforms: Code4rena, Sherlock, Cantina, Immunefi."
+user-invocable: true
+argument-hint: "[light|core|thorough] [path] [options]"
+allowed-tools: Bash(*) Read(*) Write(*) Grep(*) Glob(*) Agent(*)
+---
+
 # DewaxGuard — Ultimate Smart Contract Security Auditor
 
 ```
