@@ -25,6 +25,7 @@ allowed-tools: Bash(*) Read(*) Write(*) Grep(*) Glob(*) Agent(*)
 - **Platform-Specific Bug Validation** (pre-submission quality gate)
 
 > **Usage**: `/dewaxguard [light|core|thorough] [path] [options]`
+> **Self-Improvement**: `/dewaxguard improve` (post-audit, requires ground truth) | `/dewaxguard consolidate` (anti-bloat sweep)
 > **Languages**: Solidity, Rust/Solana, Move/Aptos, Move/Sui
 > **Platforms**: Code4rena, Sherlock, Cantina, Immunefi, HackenProof
 
@@ -250,6 +251,11 @@ dewaxguard/
 ├── SKILL.md                          # This file (orchestrator)
 ├── VERSION                           # Skill version
 ├── README.md                         # Setup + usage guide
+├── MEMORY.md                         # Metrics ledger (one line per audit)
+├── CHANGELOG.md                      # Version history
+├── improve/
+│   ├── IMPROVE.md                    # Self-improvement protocol
+│   └── CONSOLIDATE.md                # Anti-bloat sweep
 ├── agents/
 │   ├── hacking-agents/               # Phase 3: 8 breadth agents
 │   │   ├── vector-scan-agent.md
