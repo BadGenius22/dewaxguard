@@ -55,7 +55,8 @@ Phase 4c:   Chain Analysis (enabler enumeration + composition)
 Phase 5a:   Code Trace (all findings)
 Phase 5b:   Unit PoC (model/math tests)
 Phase 5c:   Mainnet Fork PoC (Critical/High/Medium)
-Phase 5d:   Bug Validator (platform-specific scoring)
+Phase 4b.5: RAG Validation Sweep (Solodit precedent lookup — see rules/rag-validation-sweep.md)
+Phase 5d:   Bug Validator (platform-specific scoring, uses RAG score)
 Phase 5d.1: Submission Hardening (fix deductions > 5pts, re-score until >= 85)
 Phase 5e:   Self-Calibration (automatic — agent FP rates, confidence accuracy)
 Phase 6:    Report (submission-ready)
@@ -75,7 +76,7 @@ Detect language automatically:
 | `*.move` + `sui::object` | `sui` |
 
 Spawn 4 recon agents in parallel:
-- **1A (RAG)**: Background, fire-and-forget — vulnerability database queries
+- **1A (RAG probe)**: Tests `mcp__unified-vuln-db__validate_hypothesis` availability with a trivial call. Sets `RAG_TOOLS_AVAILABLE = true/false` in `build_status.md`. Fire-and-forget — Phase 4b.5 reads the flag.
 - **1B (Docs + External)**: Documentation, fork ancestry, external program verification
 - **2 (Build + Static)**: Compile, static analysis, grep vulnerability patterns
 - **3 (Patterns + Surface)**: Attack surface mapping, pattern detection, template recommendations
@@ -212,6 +213,26 @@ Finding X-NN: [Title]
 ├─ Verdict: ✅ LIKELY VALID / ⚠️ BORDERLINE / ❌ LIKELY REJECTED
 └─ Improvements: [if borderline]
 ```
+
+---
+
+## PHASE 4b.5: RAG VALIDATION SWEEP (Solodit Database)
+
+After depth loop exits, validate every finding against historical precedent in the Solodit database.
+
+**See full spec**: `rules/rag-validation-sweep.md`
+
+**MCP tools used** (in priority order):
+1. `mcp__unified-vuln-db__validate_hypothesis` — primary validation, returns 0-10 confidence score
+2. `mcp__unified-vuln-db__search_solodit_live` — live Solodit search, returns historical matches
+3. `mcp__unified-vuln-db__get_similar_findings` — fallback if above fail
+4. `mcp__unified-vuln-db__get_common_vulnerabilities` — secondary fallback
+5. `mcp__unified-vuln-db__analyze_code_pattern` — pattern-based lookup
+6. `mcp__unified-vuln-db__get_root_cause_analysis` — root cause taxonomy lookup
+7. `mcp__unified-vuln-db__get_attack_vectors` — attack vector enumeration
+8. **WebSearch fallback**: `site:solodit.xyz {keywords}` if all MCP tools fail
+
+**Output**: `{SCRATCHPAD}/rag_validation.md` — consumed by Phase 5d (bug validator) and Phase 5d.1 (submission hardening).
 
 ---
 

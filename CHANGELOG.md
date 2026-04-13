@@ -1,5 +1,14 @@
 # DewaxGuard Changelog
 
+## [1.4.0] - 2026-04-12
+- Added Phase 4b.5 RAG Validation Sweep: every finding validated against Solodit database via unified-vuln-db MCP tools
+- Primary tools: validate_hypothesis, search_solodit_live (historical precedent lookup)
+- Fallback chain: get_similar_findings → get_common_vulnerabilities → WebSearch (site:solodit.xyz)
+- RAG score feeds into bug validator (Phase 5d) confidence axis and Phase 5d.1 submission hardening
+- Recon Agent 1A now probes MCP tool availability and sets RAG_TOOLS_AVAILABLE flag
+- Floor score 0.3 if all tools fail — preserves pipeline progress on tool errors
+- New file: rules/rag-validation-sweep.md (full spec)
+
 ## [1.3.0] - 2026-04-12
 - Added Inconsistency Scanner: depth/breadth agents grep codebase for correct pattern used elsewhere (shared-rules.md)
 - Added Platform Threshold Enforcement: mandatory quantification rules per platform in report-template.md
