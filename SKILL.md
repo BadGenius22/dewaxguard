@@ -1,6 +1,6 @@
 ---
 name: dewaxguard
-description: "Multi-language smart contract security auditor with 8 hacking agents, Nemesis cross-feed, mainnet fork PoC verification, and platform-specific bug validation. Supports EVM/Solidity, Solana/Rust, Aptos/Move, Sui/Move. Platforms: Code4rena, Sherlock, Cantina, Immunefi."
+description: "Multi-language smart contract security auditor with 8 hacking agents, Nemesis cross-feed, mainnet fork PoC verification, and platform-specific bug validation. Supports EVM/Solidity, Solana/Rust, Stellar/Soroban, Aptos/Move, Sui/Move, C/C++. Platforms: Code4rena, Sherlock, Cantina, Immunefi."
 user-invocable: true
 argument-hint: "[light|core|thorough] [path] [options]"
 allowed-tools: Bash(*) Read(*) Write(*) Grep(*) Glob(*) Agent(*)
@@ -26,7 +26,7 @@ allowed-tools: Bash(*) Read(*) Write(*) Grep(*) Glob(*) Agent(*)
 
 > **Usage**: `/dewaxguard [light|core|thorough] [path] [options]`
 > **Self-Improvement**: `/dewaxguard improve` | `/dewaxguard batch-import` | `/dewaxguard benchmark` | `/dewaxguard consolidate`
-> **Languages**: Solidity, Rust/Solana, Move/Aptos, Move/Sui
+> **Languages**: Solidity, Rust/Solana, Rust/Soroban (Stellar), Move/Aptos, Move/Sui, C/C++ (native ledger nodes like rippled, Bitcoin Core)
 > **Platforms**: Code4rena, Sherlock, Cantina, Immunefi, HackenProof
 
 ---
@@ -72,8 +72,12 @@ Detect language automatically:
 |-----------|----------|
 | `*.sol` + `foundry.toml` or `hardhat.config.*` | `evm` |
 | `*.rs` + `Anchor.toml` or `solana-program` | `solana` |
+| `*.rs` + `soroban-sdk` in `Cargo.toml` (no `solana-program`/`anchor-lang`) | `stellar` |
 | `*.move` + `aptos_framework` | `aptos` |
 | `*.move` + `sui::object` | `sui` |
+| `*.cpp`/`*.hpp`/`*.h`/`*.c` + `CMakeLists.txt`/`conanfile.py` (native ledger/consensus C++ codebases like rippled, Bitcoin Core) | `cpp` |
+
+> **Stellar note**: When `LANGUAGE=stellar`, the orchestrator MUST pass `~/.claude/skills/dewaxguard/platform-quirks/stellar.md` as context to every spawned agent (recon, breadth, depth, scanners, verifiers). Stellar has critical state archival semantics (persistent/instance storage archives with preserved values on TTL expiry rather than deleting) that have historically produced invalid findings when misunderstood. See `prompts/stellar/phase4b-lowlevel-templates.md` and `prompts/stellar/phase4b-runtime-templates.md` for the depth templates.
 
 Spawn 4 recon agents in parallel:
 - **1A (RAG probe)**: Tests `mcp__unified-vuln-db__validate_hypothesis` availability with a trivial call. Sets `RAG_TOOLS_AVAILABLE = true/false` in `build_status.md`. Fire-and-forget — Phase 4b.5 reads the flag.
