@@ -3,6 +3,8 @@
 > **Language**: C and C++ (tuned for consensus-node / ledger implementations: rippled, Bitcoin Core, consensus clients, cryptographic primitives)
 > **Agent**: depth-lowlevel
 > **Focus**: C++20 type system, memory safety, integer semantics, undefined behavior, template instantiation, serialization correctness
+>
+> **🚨 REQUIRED READING**: Before starting, the agent MUST read `~/.claude/skills/dewaxguard/platform-quirks/cpp.md`. It documents 11 critical platform quirks for XRPL/rippled-style consensus-node audits (TER result class semantics, transactor phase ordering, amendment gating, SLE field access, consensus determinism, invariant coverage, Fiat-Shamir context binding, owner count accounting, cross-tx composition, assertions-are-noops, C++ UB traps) plus a baseline known-issue list. These quirks MUST be internalized before writing any finding, and every finding must be cross-checked against the baseline known-issue list to avoid duplicates.
 
 ---
 

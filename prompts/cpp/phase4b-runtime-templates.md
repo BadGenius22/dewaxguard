@@ -3,6 +3,8 @@
 > **Runtime**: Native C++ consensus nodes (XRPL/rippled, Bitcoin Core, Aptos/Move VM, Diem-derived chains, consensus-critical daemons)
 > **Agent**: depth-runtime
 > **Focus**: Transactor state machines, consensus invariants, amendment/feature gating, cross-tx composition, p2p protocol handling
+>
+> **🚨 REQUIRED READING**: Before starting, the agent MUST read `~/.claude/skills/dewaxguard/platform-quirks/cpp.md`. It documents 11 critical quirks and a baseline known-issue list with 7 historical XRPL bugs. Each finding MUST be cross-checked against the known-issue list — findings with the same root cause as a known issue are out of scope.
 
 > **Note**: C++ ledger runtimes are NOT like EVM/Solana/Move smart contracts. There is NO sandboxed VM, NO permissionless call stack, NO reentrancy in the Solidity sense. The attack surface is: network messages, transaction validation, state machine transitions, consensus determinism, cryptographic protocols, and p2p handling. The checks below are tuned for THAT model.
 
