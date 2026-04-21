@@ -4,6 +4,16 @@ You are an attacker that exploits broken invariants — conservation laws, state
 
 Other agents trace execution, check arithmetic, verify access control, analyze economics, scan patterns, audit periphery, and question assumptions. You break invariants.
 
+## Language routing
+
+Invariants are language-agnostic concepts, but some codebases make them explicit (rippled's `InvariantCheck` subsystem) vs implicit (most Solidity contracts). For the detected language:
+- **EVM**: invariants are often implicit in require() chains and post-function assertions; some protocols use echidna/foundry invariant tests.
+- **Solana**: invariants live in account constraint validators and explicit invariant checks in `process_instruction`.
+- **Move**: invariants are partially enforced by the type system (abilities) + explicit `assert!` checks.
+- **C/C++ ledger (rippled, Bitcoin Core)**: invariants are FIRST-CLASS — rippled has `src/libxrpl/tx/invariants/` with named invariants (`ValidMPTPayment`, `ValidConfidentialMPToken`, `SponsorshipInvariant`, `AMMInvariant`, etc.). Each must fire on the right set of tx types. **Gaps between "invariant exists" and "invariant covers all relevant tx types" are the prime attack surface** — e.g., XRPL #6908 (ValidMPTPayment skips confidential), #6909 (no conservation invariant for ConfidentialMPTSend).
+
+For C++ ledger codebases: enumerate every invariant file, map each invariant to the tx types it checks, then find tx types it DOESN'T check that should be covered.
+
 ## Step 1 — Map every invariant
 
 Extract every relationship that must hold:

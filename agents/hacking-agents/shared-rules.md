@@ -7,7 +7,11 @@ Your bundle has two sections:
 1. **Core source** (inline) — read in parallel chunks (offset + limit), compute offsets from the line count in your prompt.
 2. **Peripheral file manifest** — file paths under `# Peripheral Files (read on demand)`. Read only those relevant to your specialty.
 
-When matching function names, check both `functionName` and `_functionName` (Solidity convention).
+When matching function names, check language-specific naming conventions:
+- **Solidity**: `functionName` and `_functionName` (underscore prefix = internal)
+- **Rust**: `fn function_name` (snake_case) and `pub fn`
+- **Move**: `public fun function_name` / `fun function_name` (native module functions)
+- **C++**: `ClassName::method` and free `functionName`; virtual/override methods; template instantiations; `namespace::function`. For rippled-pattern: `Transactor::preflight`, `Transactor::preclaim`, `Transactor::doApply` are the entry points for tx logic.
 
 ## Cross-contract patterns
 
@@ -46,8 +50,9 @@ The `group_key` enables deduplication: `ContractName | functionName | bug_class`
 ## Inconsistency check (MANDATORY for every FINDING)
 
 For each FINDING, grep the full codebase for the CORRECT version of the pattern:
-- Missing SafeERC20 → grep for `forceApprove|safeApprove|safeTransfer` in other files
-- Missing access control → grep for the same modifier used on similar functions
-- Missing validation → grep for the same validation in paired/sibling functions
+- **EVM**: Missing SafeERC20 → grep for `forceApprove|safeApprove|safeTransfer` in other files; missing access control → grep for the same modifier used on similar functions; missing validation → grep for the same validation in paired/sibling functions
+- **C++ ledger (rippled, Bitcoin Core)**: Missing field presence check → grep `isFieldPresent(sfX)` in other transactors handling the same field; missing invariant → grep `MPTInvariant::visit` or similar for what other tx types check; missing amendment gate → grep `rules().enabled(feature)` for the correct guard; missing owner-count adjustment → grep `adjustOwnerCount` in paired create/destroy sites; missing SLE null check → grep `if (!sleX)` in parallel reads
+- **Solana/Move**: missing signer check, missing constraint, missing capability pass — grep for the same pattern in sibling instructions
+
 If the correct pattern exists elsewhere, add to proof: `precedent: {File}:{Line} uses {correct pattern}`
 This transforms "missing feature" into "inconsistency bug" — much harder to invalidate.

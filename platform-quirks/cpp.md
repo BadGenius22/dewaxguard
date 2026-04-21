@@ -379,3 +379,74 @@ For each finding you write:
 Lessons learned from past XRPL audits get appended here. This document only improves by accumulating pain.
 
 - 2026-04: Platform quirks file created. Seeded with 11 quirks from the existing `prompts/cpp/` depth templates, which themselves reference the 7 XRPL issue numbers above.
+- **2026-04-18: XRPL Sherlock April 2026 audit completed.** 5 Medium submissions across 3 reward pools. Full project-local manifest (F-01..F-19 framework facts, R-01..R-34 refuted classes, D-01..D-21 defensive patterns, T-01..T-09 trust decisions, L-01..L-17 leads, M-01..M-12 methodology notes) preserved for future XRPL audit reference. Key XRPL-specific learnings below.
+
+---
+
+## XRPL April 2026 Audit Learnings (reference for future XRPL/rippled audits)
+
+> These entries are XRPL-code-specific (not cross-language-generalizable — those went to `../methodology/`). Read before your next XRPL audit.
+
+### High-value framework facts (XRPL-specific)
+
+| # | Fact | Evidence |
+|---|------|----------|
+| F-01 | Every `tec*` satisfying `isTecClaimHardFail` routes through `Transactor::reset(fee)` → `ctx_.discard()` wipes partial state. Only fee commits. | `Transactor.cpp:1155,1308` |
+| F-08 | `sfOutstandingAmount = Σ(holder.sfMPTAmount + holder.sfLockedAmount) + sfConfidentialOutstandingAmount`. When = 0, no holder has balance in any form. | `MPTokenHelpers.cpp:616` |
+| F-10 | `canTrade` returns `tecOBJECT_NOT_FOUND` when issuance doesn't exist — fail-closed choke for OfferCreate / BookStep / MPTEndpointStep. | `MPTokenHelpers.cpp:521-533` |
+| F-11 | `adjustOwnerCount(view, acct, sponsor, ±1)` is the canonical sponsor accounting helper — handles `sfSponsoringOwnerCount` / `sfSponsoredOwnerCount` / `sfReserveCount` symmetrically. | `AccountRootHelpers.cpp:137-173` |
+| F-12 | `Batch::doApply` (XLS-0056) is a no-op. Inner txs apply AFTER the outer returns, each with its OWN `ApplyContext` + invariant cycle. Outer Batch observes only fee/sequence deltas. | `apply.cpp:128-187` |
+| F-13 | **`accountHolds` for MPT reads only `sfMPTAmount`, excludes `sfLockedAmount`**. Root cause of ESC-1/2/3 (escrow-locked balance shielded from issuer seizure). | `TokenHelpers.cpp:328` |
+| F-15 | **Pseudo-account immunity**: XRPL pseudo-accounts (from `createPseudoAccount`) have `lsfDisableMaster + lsfDefaultRipple + lsfDepositAuth` + `sfSequence=0`. Cannot sign → cannot `EscrowCreate` → cannot have `sfLockedAmount > 0`. Filter for F-13 sweeps. | `Batch.cpp:511-527` |
+| F-16 | **`ConfidentialMPTConvertBack` zeroes but does NOT `makeFieldAbsent` encrypted SField slots** (sfConfidentialBalanceInbox/Spending, sfIssuerEncryptedBalance). Persistent placeholders create CONF-1 trap. | `ConfidentialMPTConvertBack.cpp:210-228` |
+| F-18 | **`MultiSignReserve` is `XRPL_RETIRE_FEATURE`** — always-on, not disableable in test environments. Pre-MSR SignerList legacy branches unreachable via public-tx PoCs. | `features.macro:139`, `SignerListSet.cpp:180-184` |
+| F-19 | **XLS-0075 v1.1 granular-permission sandbox defaults `checkGranularSemantics` to `tesSUCCESS`**. Only `Payment` and `TrustSet` override; `SponsorshipSet` + `AccountSet` + `MPTokenIssuanceSet` inherit the permissive default. Root cause of DEL-1. | `Transactor.h:227-234`, `permissions.macro:83-95` |
+
+### High-value refuted classes (don't re-investigate)
+
+| # | Class | Blocker |
+|---|-------|---------|
+| R-01 | "Missing cleanup on `tec*`" / partial state leaks | F-01 `reset()` discards partial state |
+| R-06 | "CanTransfer/CanLock/CanEscrow flag clearance lockout" | T-01 — issuer compliance features are designed per contest trust model |
+| R-13 | "MPTokenIssuanceDestroy cascade leaves orphans" | F-08 OA gate catches all 4 primary dependents; F-11 handles sponsor symmetrically |
+| R-14 | "Orphan SLE referencing destroyed issuance" | Per-SLE-type classification — all fall into F-08-contributor, D-11 fail-closed, or explicit cascade walker |
+| R-19 | "Batch × Delegate tx-level permission escalation" | Per-inner-tx `checkPermission` at `applySteps.cpp:180` validates each inner's permission independently |
+| R-28 | "FYEO-class bugs (sponsor-field attribution, owner-count asymmetry) present in new ac4f142 transactors" | All 10 FYEO remediations verified intact |
+
+### Defensive patterns (safe idioms — don't waste effort re-verifying)
+
+| # | Pattern | Key code site |
+|---|---------|---------------|
+| D-08 | `checkMPTDEX` per-offer is the universal MPT DEX choke-point | `BookStep.cpp::forEachOffer` |
+| D-09 | `lockEscrowMPT` preserves F-08 by moving balance within holder (MPTAmount ↔ LockedAmount) not mutating issuance aggregate | `MPTokenHelpers.cpp:591-640` |
+| D-10 | **Pseudo-account holder pattern**: Vault/AMM/LoanBroker hold MPT via normal `ltMPTOKEN` under pseudo-account → collapse into F-08 automatically, no cascade walker needed | audit breadth_3_cascade.md |
+| D-14 | Lock-state re-validation at offer consumption via `fhZERO_IF_FROZEN` + `checkMPTDEX::isFrozen` | `OfferStream.cpp:244`, `BookStep.cpp:1383` |
+| D-18 | EscrowCreate flag gates (`lsfMPTCanEscrow`, `RequireAuth`) checked at CREATION TIME only — clearing flags does NOT retroactively break existing escrows |
+
+### Trust decisions (settled contest judgment — don't contradict)
+
+| # | Decision |
+|---|----------|
+| T-01 | Issuer compliance features (freeze, lock, clawback, flag mutations) are explicitly designed; issuer using them to strand holders is NOT a bug |
+| T-06 | Only NEW or strictly ELEVATED impact vs previous version counts |
+| T-07 | Coded PoC is MANDATORY for every severity |
+| T-08 | **Untrusted holder griefing trusted issuer IS in scope.** Trust is one-directional — this is the M-08 / M-03 generator |
+| T-09 | Issuer-initiated Destroy is a compliance design choice; unfundable persistent offers are by-design ledger bloat |
+
+### Attack-generator templates to apply first
+
+For maximum throughput on an XRPL audit:
+
+1. **M-08 holder-plants-trap on every new MPT-touching transactor.** In the April 2026 audit this produced 5 of 5 Mediums. The specific question for MPT: "can a holder move MPT from `sfMPTAmount` to `sfLockedAmount` (via escrow) or plant encrypted-zero fields, and does any subsequent admin op fail on that state?"
+2. **M-07 sweep of `accountHolds` callers** after ANY finding in the helper. Skip pseudo-account callers per F-15.
+3. **M-09 SYNC_GAP on every aggregate-vs-per-entity pair.** F-08 / `sfConfidentialOutstandingAmount` / `sfLockedAmount` / `sfSponsoringOwnerCount` are the aggregates. Per-entity fields are the state.
+4. **M-12 granular permission sandbox for every `GRANULAR_PERMISSION` entry**. Check `checkGranularSemantics` override presence against the `TrustSet` / `Payment` reference pattern.
+
+### Full project-local manifest reference
+
+The complete F/R/D/T/L inventory from the XRPL April 2026 audit is preserved at:
+```
+audit/2026-04-xrp-ledger-april-2026-BadGenius22/scratchpad/learned/00_MANIFEST.md
+```
+
+For the next XRPL audit: copy the F/R/D/T/L entries into this file's XRPL-specific section, deduplicating against what's already here. Keep M-xx entries in `../methodology/` (cross-language).
