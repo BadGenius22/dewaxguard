@@ -4,6 +4,17 @@
 
 **One-line**: Before investing effort in a finding whose root cause is in a code path gated on a retired / hardfork-completed amendment's legacy state, verify PoC feasibility. If public transactions can't reach the legacy branch in a test environment, the finding fails contest PoC-mandatory rules.
 
+## Double-OOS: retired legacy code is DOUBLY out-of-scope
+
+Retired-amendment legacy branches typically fail TWO contest rules simultaneously:
+
+1. **PoC feasibility** (this methodology): can't reach the branch via public tx in test env.
+2. **"Unchanged legacy code = known issue"** (Sherlock April 2026 FAQ update): per the contest FAQ — *"if the impact existed in unchanged legacy code, it remains classified as a known issue."* Even if new code exposes the legacy bug to more users, the impact-source is still the legacy code, which is OOS.
+
+When BOTH rules apply, the finding is doubly OOS. **SPON-M1 is the canonical example**: PoC-blocked (pre-MSR branch unreachable in test env) AND impact-source-blocked (buggy math lives in unchanged legacy `signerCountBasedOwnerCountDelta`, not in new `SponsorshipTransfer`).
+
+Takeaway: before submitting a finding in any legacy-adjacent code path, verify BOTH (a) PoC can reach it via public tx, and (b) the impact-source code itself is in the NEW/CHANGED delta.
+
 ## Trigger
 
 Apply whenever a finding's root-cause code path is gated on one of:

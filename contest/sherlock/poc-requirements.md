@@ -63,12 +63,41 @@ Reviewer should be able to:
 
 **5 steps, 5 minutes** — target reproducibility budget.
 
+## Pristine-repo validation (recommended before every submission)
+
+Per Sherlock contest FAQ (April 2026 update), PoCs are expected to apply cleanly to a pristine clone of the contest repo. Use `git stash` to verify your PoC is self-contained without losing your working state:
+
+```bash
+# 1. Stage ONLY the PoC files (not your other in-progress work)
+git add <poc-file-path(s)>
+
+# 2. Save as a patch file OUTSIDE the repo to prevent accidental stashing
+git diff --cached > /tmp/poc.patch
+
+# 3. Stash everything else (including your other in-progress audit work)
+git stash push -u -m "WIP before PoC validation"
+
+# 4. Apply the patch to the now-clean tree
+git apply /tmp/poc.patch
+
+# 5. Build + run the PoC — if it works, the PoC is self-contained
+cd .build && cmake --build . --target xrpld
+./xrpld --unittest=YourTestSuite
+
+# 6. Restore your working state
+git checkout -- .      # discard the applied patch
+git stash pop          # restore your other WIP
+```
+
+If step 5 fails, your PoC depends on other uncommitted changes. Fix before submitting — judges test against pristine clones.
+
 ## Anti-patterns
 
 - **Don't attach external files** — Sherlock is markdown-only.
 - **Don't reference `/path/to/X`** — placeholder syntax reviewers paste literally.
 - **Don't use "should revert"** without a concrete expected error code.
 - **Don't fake reproduction output** — judges know the framework signatures.
+- **Don't skip pristine-repo validation.** A PoC that works only on your dirty tree is an invalid submission.
 
 ## Examples
 
