@@ -10,7 +10,8 @@
 
 ## Entries
 
-- **2026-04-18** | XRPL Sherlock (C++/rippled) | **5 Mediums** (ESC-1/2/3 + CONF-1 + DEL-1) across **3 of 5 reward pools** (MPT DEX, Confidential MPT, Permission Delegation), remaining 2 pools cleared (Batch + Sponsored Fees) | Added **8 methodology templates** (M-03/04/07/08/09/10/11/12), **5 pattern case studies** in `patterns/xrpl-2026-04/`, full Sherlock contest template bundle in `contest/sherlock/`. XRPL-specific F-01..F-19, R-01..R-34, D-01..D-21, T-01..T-09, L-01..L-17 preserved in project-local manifest at `audit/2026-04-xrp-ledger-april-2026-BadGenius22/scratchpad/learned/00_MANIFEST.md`. Key new templates: **M-08** (5/5 — highest yield), **M-09 SYNC_GAP**, **M-11** (retired-amendment feasibility — saves from submitting PoC-blocked findings), **M-12 granular permission sandbox** (disproportionate pool-diversification value — unlocked 3rd reward pool via DEL-1).
+- **2026-04-18** | XRPL Sherlock (C++/rippled) — initial 7-domain sweep | **5 Mediums drafted** (ESC-1/2/3 + CONF-1 + DEL-1) across **3 of 5 reward pools** | Added **8 methodology templates** (M-03/04/07/08/09/10/11/12), **5 pattern case studies** in `patterns/xrpl-2026-04/`, full Sherlock contest template bundle in `contest/sherlock/`. ⚠️ SEE 2026-04-23 ENTRY for DEL-1 OOS correction.
+- **2026-04-23** | XRPL Sherlock (C++/rippled) — Domains 8-14 complete + kuprum dedup | **4 Mediums submission-ready** (ESC-1/2/3 + CONF-1) across **2 of 5 reward pools** (MPT DEX + Confidential MPT) after **DEL-1 reclassified OOS as duplicate of public issue #6890** (created 22.5h before contest start, discovered via M-13 kuprum index ingestion). Remaining pools: Batch + Sponsored Fees cleared; Permission Delegation lost (DEL-1 was the hit). **2 Low findings drafted** (L-30 PathRequest missing-else, L-31 accountDestAssets MPT asymmetry — both XLS-0082 / MPT DEX, unique vs kuprum). **1 Low candidate held** (L-32 account_objects sponsored pagination — XLS-0068, risky per M-14 unchanged-legacy). Added **2 new methodology templates** (M-13 kuprum-ingestion, M-14 elevated-impact-vs-unchanged-legacy), **3 new pattern case studies** (L-30/L-31/L-32), **OOS annotation** on DEL-1 pattern. XRPL-specific manifest grew to F-01..F-35, R-01..R-68, D-01..D-30, L-01..L-32, M-01..M-14. Key new insight: **ingest kuprum-style 3rd-party known-issue indices in the first 48h of ANY competitive audit** — M-13 saves weeks of wasted work.
 
 ## Growth protocol
 
@@ -26,15 +27,17 @@ After every audit:
 
 Each methodology template in `methodology/` should list its validated findings in its "Validated findings" section. Re-validation across multiple audits strengthens confidence.
 
-As of 2026-04-18:
-- **M-03** inverse-trust: 5 validations (XRPL ESC-1/2/3 + CONF-1 + DEL-1)
+As of 2026-04-23:
+- **M-03** inverse-trust: **4 validations** (XRPL ESC-1/2/3 + CONF-1; DEL-1 was validation #5 but reclassified OOS)
 - **M-04** feature-pool-coverage: 2 validations (XRPL ESC-1, ESC-3)
 - **M-07** post-finding-sweep: 1 validation (XRPL L-14 → ESC-3)
-- **M-08** holder-plants-trap: **5 of 5 Mediums — highest-yield template**
+- **M-08** holder-plants-trap: **4 of 4 submittable Mediums — still highest-yield template** (DEL-1 was M-08-adjacent; M-12 is the true DEL-1 template)
 - **M-09** SYNC_GAP: 1 validation (XRPL CONF-1)
-- **M-10** prior-audit-dedup: 1 validation (XRPL submission prep)
+- **M-10** prior-audit-dedup: 1 validation (XRPL submission prep) + now **extended** to kuprum-style indices per M-13
 - **M-11** retired-amendment-feasibility: 1 save (XRPL SPON-M1 correctly NOT submitted)
-- **M-12** granular-sandbox: 1 validation (XRPL DEL-1) — first Permission Delegation pool hit
+- **M-12** granular-sandbox: 1 validation (XRPL DEL-1) — template still validated even though DEL-1 was OOS'd by kuprum dedup (another researcher reached the same conclusion)
+- **M-13** kuprum-index-ingestion: **1 major save** (XRPL DEL-1 OOS caught before submission — without M-13, would have been a rejected Sherlock submission)
+- **M-14** elevated-impact-vs-unchanged-legacy: 1 contested case (XRPL L-32 held pending user decision)
 
 ## High-yield summary (for first-pass audits)
 

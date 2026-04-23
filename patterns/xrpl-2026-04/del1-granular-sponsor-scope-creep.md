@@ -2,6 +2,22 @@
 
 **Audit**: XRPL Sherlock, April 2026 | **Severity**: Medium | **Feature Pool**: Permission Delegation (XLS-0075)
 
+## ⚠️ Submission status (updated 2026-04-23)
+
+**NOT SUBMITTED — classified OOS as duplicate of public known issue [XRPLF/rippled#6890](https://github.com/XRPLF/rippled/issues/6890)** "SponsorFee granular permission allows delegate to create self-benefiting fee sponsorship, redirecting principal's XRP", **created 2026-04-12 16:27:52 UTC** — ~22.5 hours BEFORE contest start (2026-04-13 15:00 UTC). Discovered via [M-13](../../methodology/M13-kuprum-known-issue-index-ingestion.md) kuprum-index ingestion mid-audit.
+
+- **Root cause match**: identical (SponsorshipSet missing `checkGranularSemantics` override + `sfSponsee` in granular template)
+- **Site match**: identical (`permissions.macro:82-88`, `SponsorshipSet.cpp:187-194`, `Transactor.h:227-234`)
+- **Recommendation match**: identical (add override or remove `sfSponsee` from template)
+
+**Methodology implications still valid**: M-12 (granular permission sandbox) is still the correct attack-template; this instance was just discovered first by another researcher. The next granular-permission contest on ANY platform should still use M-12.
+
+**Pool coverage impact**: XRPL April 2026 submission reduced from 5 Mediums / 3 pools → 4 Mediums / 2 pools. Permission Delegation (XLS-0075) no longer hit.
+
+---
+
+(Original pattern writeup preserved below for methodology reference)
+
 ## Attack templates
 
 [M-12](../../methodology/M12-granular-permission-sandbox.md) granular permission scope creep — **the canonical example**.

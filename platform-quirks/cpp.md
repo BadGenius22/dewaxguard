@@ -393,14 +393,30 @@ Lessons learned from past XRPL audits get appended here. This document only impr
 |---|------|----------|
 | F-01 | Every `tec*` satisfying `isTecClaimHardFail` routes through `Transactor::reset(fee)` → `ctx_.discard()` wipes partial state. Only fee commits. | `Transactor.cpp:1155,1308` |
 | F-08 | `sfOutstandingAmount = Σ(holder.sfMPTAmount + holder.sfLockedAmount) + sfConfidentialOutstandingAmount`. When = 0, no holder has balance in any form. | `MPTokenHelpers.cpp:616` |
+| F-08+ | The OA invariant is enforced by a disjoint two-invariant split: `ValidMPTPayment` (non-confidential) and `ValidConfidentialMPToken` (confidential). `COA ≤ OA` runtime-enforced by `ValidConfidentialMPToken::badCOA`. | `MPTInvariant.cpp:17-23, 359-361` |
 | F-10 | `canTrade` returns `tecOBJECT_NOT_FOUND` when issuance doesn't exist — fail-closed choke for OfferCreate / BookStep / MPTEndpointStep. | `MPTokenHelpers.cpp:521-533` |
 | F-11 | `adjustOwnerCount(view, acct, sponsor, ±1)` is the canonical sponsor accounting helper — handles `sfSponsoringOwnerCount` / `sfSponsoredOwnerCount` / `sfReserveCount` symmetrically. | `AccountRootHelpers.cpp:137-173` |
 | F-12 | `Batch::doApply` (XLS-0056) is a no-op. Inner txs apply AFTER the outer returns, each with its OWN `ApplyContext` + invariant cycle. Outer Batch observes only fee/sequence deltas. | `apply.cpp:128-187` |
 | F-13 | **`accountHolds` for MPT reads only `sfMPTAmount`, excludes `sfLockedAmount`**. Root cause of ESC-1/2/3 (escrow-locked balance shielded from issuer seizure). | `TokenHelpers.cpp:328` |
 | F-15 | **Pseudo-account immunity**: XRPL pseudo-accounts (from `createPseudoAccount`) have `lsfDisableMaster + lsfDefaultRipple + lsfDepositAuth` + `sfSequence=0`. Cannot sign → cannot `EscrowCreate` → cannot have `sfLockedAmount > 0`. Filter for F-13 sweeps. | `Batch.cpp:511-527` |
 | F-16 | **`ConfidentialMPTConvertBack` zeroes but does NOT `makeFieldAbsent` encrypted SField slots** (sfConfidentialBalanceInbox/Spending, sfIssuerEncryptedBalance). Persistent placeholders create CONF-1 trap. | `ConfidentialMPTConvertBack.cpp:210-228` |
+| F-17 | `ValidConfidentialMPToken::requiresPrivacyFlag` checks PER-TX-MUTATED MPTokens only — does NOT scan all issuance MPTokens at preclaim time. Combined with F-16 this is the CONF-1 enabler. | `MPTInvariant.cpp:426-447, 549-558` |
 | F-18 | **`MultiSignReserve` is `XRPL_RETIRE_FEATURE`** — always-on, not disableable in test environments. Pre-MSR SignerList legacy branches unreachable via public-tx PoCs. | `features.macro:139`, `SignerListSet.cpp:180-184` |
 | F-19 | **XLS-0075 v1.1 granular-permission sandbox defaults `checkGranularSemantics` to `tesSUCCESS`**. Only `Payment` and `TrustSet` override; `SponsorshipSet` + `AccountSet` + `MPTokenIssuanceSet` inherit the permissive default. Root cause of DEL-1. | `Transactor.h:227-234`, `permissions.macro:83-95` |
+| F-20 | **Nested Batch has triple-layer rejection**: template check (`STTx.cpp:748`), preflight `temINVALID` (`Batch.cpp:285-292`), defensive fee-calc `INITIAL_XRP` sentinel (`Batch.cpp:72-76`). | Halborn Batch remediation canonical |
+| F-21 | `Transactor::calculateBaseFee` performs ZERO SignerList lookups — signer count is tx-payload-literal only. No `keylet::signers(...)` in fee-calc path. | `Transactor.cpp:374-399`, `Batch.cpp:93-136` |
+| F-22 | `Transactor::reset(fee)` uses same `getFeePayer(view, tx)` as checkFee/payFee. Priority: `Sponsor(spfSponsorFee) > Delegate > Account`. `ctx_.discard()` rolls back to base_ before balance read. | `Transactor.cpp:1153-1234` |
+| F-23 | `tapFAIL_HARD` is never set on inner Batch txs and short-circuits without `reset()` when set (no fee charged). | `apply.cpp:144`, `Transactor.cpp:1301-1306` |
+| F-24 | JSON reader caps integers at `Json::Value::maxUInt = 2^32 - 1`. Values > 2^32-1 rejected at the lexer; does NOT silently promote to double. | `libxrpl/json/json_reader.cpp:562-566` |
+| F-25 | All amount-like SFields emit JSON strings; `amountFromJson` rejects `realValue`. `STAmount::setJson`/`getText` always produces a string. Defensive code UNCHANGED in 2026-04 delta → OOS per contest rule. | `STAmount.cpp:645-771, 1122-1148`, `STInteger.cpp:198-217` |
+| F-26 | `STObject::getJson` emits every present field uniformly — binary and JSON output sets are structurally identical. No asymmetric disclosure channel. | `STObject.cpp:837-847` |
+| F-27 | `sfSponsor` is a `LedgerFormats` COMMON-OPTIONAL field — valid on EVERY SLE type, not per-schema. | `LedgerFormats.cpp` (getCommonFields) |
+| F-28 | `ttBATCH` is `Delegation::notDelegable`. Rejected at DelegateSet creation → closes entire "Batch via delegate" family. | `transactions.macro:940`, `Permissions.cpp:217-218`, `DelegateSet.cpp:30` |
+| F-29 | **Release-mode `XRPL_ASSERT` is a NO-OP**. Defense-in-depth must NEVER rely on assertion side effects in production — the hard check must follow (return tefBAD_AUTH / tefINTERNAL / similar). Pattern applies throughout rippled. | `Transactor.cpp:839-844` |
+| F-30 | `ValidPermissionedDomain::finalize()` uses two-branch switch-firewall (amendment-enabled vs disabled). Enabled branch allowlists tx types via `switch(txType)`; `default:` rejects non-empty status. | `PermissionedDomainInvariant.cpp`, `InvariantCheck.cpp` dispatch |
+| F-33 | `fixSecurity3_1_3` guards at `MPTokenHelpers.cpp:146,270` confirm `sfMPTAmount == 0 AND sfLockedAmount > 0` is a REACHABLE first-class holder state. Future MPT analysis must assume this state is reachable. | `MPTokenHelpers.cpp:146, 270` |
+| F-34 | `ValidMPTTransfer::enforce = !featureMPTokensV2` has INVERTED-NAME semantics — returns `true` (invariant passes) when NOT enforced. Read logic carefully. | `MPTInvariant.cpp` `ValidMPTTransfer` |
+| F-35 | Pre-funded reserve sponsor CAN over-commit `sfReserveCount` without XRP backing (no hard check in set path). Sponsor responsible for maintaining balance. | SponsorHelpers / pre-funded reserve paths |
 
 ### High-value refuted classes (don't re-investigate)
 
@@ -410,8 +426,22 @@ Lessons learned from past XRPL audits get appended here. This document only impr
 | R-06 | "CanTransfer/CanLock/CanEscrow flag clearance lockout" | T-01 — issuer compliance features are designed per contest trust model |
 | R-13 | "MPTokenIssuanceDestroy cascade leaves orphans" | F-08 OA gate catches all 4 primary dependents; F-11 handles sponsor symmetrically |
 | R-14 | "Orphan SLE referencing destroyed issuance" | Per-SLE-type classification — all fall into F-08-contributor, D-11 fail-closed, or explicit cascade walker |
+| R-15 | "Rounding asymmetry in MPTEndpointStep exploitable for attacker profit" | All 24 `mulRatio` sites use consistent rounding directions disadvantaging the exchanger; MPT stricter than IOU (exact `Number` vs lossy `double`) |
+| R-17 | "Locked/frozen MPT consumed via stale offer in payment engine" | Lock state re-validated at CONSUMPTION TIME via `fhZERO_IF_FROZEN` + `checkMPTDEX::isFrozen` |
 | R-19 | "Batch × Delegate tx-level permission escalation" | Per-inner-tx `checkPermission` at `applySteps.cpp:180` validates each inner's permission independently |
+| R-22 | "F-13 blind spot affects AMM/LoanBroker/other pool-balance checks" | Pool balances live on pseudo-accounts (F-15); structurally non-exploitable |
 | R-28 | "FYEO-class bugs (sponsor-field attribution, owner-count asymmetry) present in new ac4f142 transactors" | All 10 FYEO remediations verified intact |
+| R-38 | "Nested Batch (ttBATCH as inner) bypass / overflow" | F-20 triple-layer rejection |
+| R-40 | "Sponsored Batch × multisig inner: sponsor's SignerList sizes inner's fee" | Inner `sfSigners` blocked at `Batch.cpp:255-261` → `temBAD_SIGNER`; batch-signer multisig keyed off principal |
+| R-41 | "Delegated multisig: fee uses delegate's SignerList but validation uses principal's" | F-21 — fee count is tx-payload-literal, no SignerList lookup |
+| R-44 | "MPT amount > 2^53 JSON precision loss; sign-vs-apply mismatch" | F-24 + F-25; defensive code in unchanged-legacy → OOS anyway |
+| R-45 | "RPC discloses Confidential MPT ciphertexts / auditor state to unauthorized queriers" | XLS-0096 privacy is cryptographic not access-control; all state is public on-ledger |
+| R-46 | "ac4f142 new SField JSON-name or (type, ordinal) code collision with legacy" | All 35 new SFields verified unique in (type, ordinal) and JSON name; `SField` ctor asserts uniqueness |
+| R-47 | "Missing `soeREQUIRED` enforcement on new ac4f142 transactors" | `STObject::applyTemplate` strictly enforces REQUIRED and rejects unknown fields at parse time |
+| R-48 | "fixPermissionedDomainInvariant leaves residual mutation paths uncovered" | Post-fix switch allowlists PD_SET + PD_DELETE + SPONSORSHIP_TRANSFER; `default:` requires empty status |
+| R-54 | "featureBatch → featureBatchV1_1 transition introduces signature bypass" | Pure strengthening; `preflight2` gained `!ctx.parentBatchId.has_value()`; XRPL_ASSERT → hard `temINVALID_INNER_BATCH` |
+| R-57 | "Xahau / fork idioms (Hooks, Remit, Emit, URI) leaked into XRPL delta" | Exhaustive grep of 20 files: zero matches; all code is in-house XRPL |
+| R-66 | "Novel XLS-0075 finding exists outside kuprum cluster (#6890/#6893/#6919/#6921/#6923/#6924)" | 12-hypothesis hunt found zero candidates surviving dedup |
 
 ### Defensive patterns (safe idioms — don't waste effort re-verifying)
 
@@ -420,8 +450,19 @@ Lessons learned from past XRPL audits get appended here. This document only impr
 | D-08 | `checkMPTDEX` per-offer is the universal MPT DEX choke-point | `BookStep.cpp::forEachOffer` |
 | D-09 | `lockEscrowMPT` preserves F-08 by moving balance within holder (MPTAmount ↔ LockedAmount) not mutating issuance aggregate | `MPTokenHelpers.cpp:591-640` |
 | D-10 | **Pseudo-account holder pattern**: Vault/AMM/LoanBroker hold MPT via normal `ltMPTOKEN` under pseudo-account → collapse into F-08 automatically, no cascade walker needed | audit breadth_3_cascade.md |
+| D-11 | **Fail-closed-at-use recovery**: any SLE referencing `sfMPTokenIssuanceID` that must later go through `canTrade` / `requireAuth` is SAFE after Destroy — gates fail-close when issuance doesn't exist |
 | D-14 | Lock-state re-validation at offer consumption via `fhZERO_IF_FROZEN` + `checkMPTDEX::isFrozen` | `OfferStream.cpp:244`, `BookStep.cpp:1383` |
+| D-17 | **`balanceVersion` chaining prevents ConfidentialMPT proof replay within Batch** — `incrementConfidentialVersion` runs per-inner-tx; each subsequent inner's contextHash binds the incremented value |
 | D-18 | EscrowCreate flag gates (`lsfMPTCanEscrow`, `RequireAuth`) checked at CREATION TIME only — clearing flags does NOT retroactively break existing escrows |
+| D-20 | **Flag-CLEAR preconditions must check PER-ENTITY state, not just aggregate counters** — CONF-1 root cause. For every "clear capability flag" path, verify the precondition covers per-holder/per-entity dangling state, not just aggregate-zero. |
+| D-22 | **Three-layered rejection pattern for sub-transaction composition** — any embedded-tx-type must be rejected at (a) deep template layer, (b) preflight, (c) defensive fee-calc sentinel |
+| D-23 | **Fee calculation is tx-payload-only — no SignerList lookup** — eliminates the entire class of "fee sized against account A but validation uses account B" |
+| D-24 | **XLS-0096 privacy is ElGamal/Pedersen cryptography, not RPC access control** — ciphertexts are public on-ledger. RPC disclosure findings require OFF-CHAIN-ONLY info exposure (decryption key, plaintext via debug path) |
+| D-25 | **Switch-firewall invariant pattern (PermissionedDomain)** — when an SLE can be mutated by multiple tx types, the invariant enumerates every permitted tx type via `switch(txType)` with `default:` allowlist rejection |
+| D-26 | **`XRPL_ASSERT` → `tefINTERNAL` conversion** for release-mode load-bearing defenses — audit every `XRPL_ASSERT` in authorization/validation paths and verify corresponding `tef*` fallback exists |
+| D-28 | **Multi-hop overflow tolerance via final-state invariant** — `AllowMPTOverflow::Yes` permits temporary overflow during multi-hop; `ValidMPTPayment` invariant enforces final `MaximumAmount`. Any future transactor using temporary overflow MUST also contribute to a final-state invariant |
+| D-29 | **Invariant additive-refactor pattern** — add new invariant classes for new semantics; add carve-outs only when pre-existing check was over-restrictive; NEVER remove a guard silently. Subtractive invariant diff is an audit red flag |
+| D-30 | **Amount=0 explicit freeze/auth guard pattern** — zero-amount semantics combined with persistent-state-creation (key registration, flag flip, field creation) MUST replicate explicit `checkFrozen` + `requireAuth`. `accountHolds` on zero is insufficient |
 
 ### Trust decisions (settled contest judgment — don't contradict)
 
@@ -437,16 +478,26 @@ Lessons learned from past XRPL audits get appended here. This document only impr
 
 For maximum throughput on an XRPL audit:
 
-1. **M-08 holder-plants-trap on every new MPT-touching transactor.** In the April 2026 audit this produced 5 of 5 Mediums. The specific question for MPT: "can a holder move MPT from `sfMPTAmount` to `sfLockedAmount` (via escrow) or plant encrypted-zero fields, and does any subsequent admin op fail on that state?"
-2. **M-07 sweep of `accountHolds` callers** after ANY finding in the helper. Skip pseudo-account callers per F-15.
-3. **M-09 SYNC_GAP on every aggregate-vs-per-entity pair.** F-08 / `sfConfidentialOutstandingAmount` / `sfLockedAmount` / `sfSponsoringOwnerCount` are the aggregates. Per-entity fields are the state.
-4. **M-12 granular permission sandbox for every `GRANULAR_PERMISSION` entry**. Check `checkGranularSemantics` override presence against the `TrustSet` / `Payment` reference pattern.
+1. **M-13 kuprum-index ingestion in first 48h.** CRITICAL FIRST STEP — ingesting the XRPL April 2026 kuprum catalog mid-audit caught DEL-1 as OOS (#6890). In future XRPL audits, find the equivalent catalog (GitHub gist, Watson thread) before starting breadth runs.
+2. **M-08 holder-plants-trap on every new MPT-touching transactor.** In the April 2026 audit this produced 4 of 4 submittable Mediums. The specific question for MPT: "can a holder move MPT from `sfMPTAmount` to `sfLockedAmount` (via escrow) or plant encrypted-zero fields, and does any subsequent admin op fail on that state?"
+3. **M-07 sweep of `accountHolds` callers** after ANY finding in the helper. Skip pseudo-account callers per F-15.
+4. **M-09 SYNC_GAP on every aggregate-vs-per-entity pair.** F-08 / `sfConfidentialOutstandingAmount` / `sfLockedAmount` / `sfSponsoringOwnerCount` are the aggregates. Per-entity fields are the state. **D-20 generalizes this** — every flag-CLEAR precondition that reads an aggregate is suspect.
+5. **M-12 granular permission sandbox for every `GRANULAR_PERMISSION` entry**. Check `checkGranularSemantics` override presence against the `TrustSet` / `Payment` reference pattern.
+6. **M-14 unchanged-legacy elevation check** for any delta diff where a new amendment introduces new code paths hitting old logic. Pre-existing bugs can become IN-SCOPE via amplified reachability.
+
+### RPC / periphery-specific hunt heuristics (new in April 2026)
+
+- **Variant-refactor regressions** (L-30): any PR that wraps an `if/else if/else` chain inside a new lambda (visitor pattern, `std::visit`, type-dispatch) is HIGH RISK. Review with side-by-side keyword comparison.
+- **Parallel-branch asymmetry** (L-31): when a helper gains a new branch for a new asset type (IOU → MPT, v1 → v2, etc.), write the condition table side-by-side BEFORE reading tests. Tests may encode WRONG expectations.
+- **Filter-counter ordering** (L-32): paginated iterators where `++counter` is OUTSIDE the `canAppend` guard will drain user-specified `limit` on filter rejections. Every new filter option added to an existing paginated RPC triggers M-14 analysis.
 
 ### Full project-local manifest reference
 
-The complete F/R/D/T/L inventory from the XRPL April 2026 audit is preserved at:
+The complete F/R/D/T/L/M inventory from the XRPL April 2026 audit is preserved at:
 ```
 audit/2026-04-xrp-ledger-april-2026-BadGenius22/scratchpad/learned/00_MANIFEST.md
 ```
+
+Current counts (post-2026-04-23 update): F-01..F-35, R-01..R-68, D-01..D-30, T-01..T-09, L-01..L-32, M-01..M-14.
 
 For the next XRPL audit: copy the F/R/D/T/L entries into this file's XRPL-specific section, deduplicating against what's already here. Keep M-xx entries in `../methodology/` (cross-language).
