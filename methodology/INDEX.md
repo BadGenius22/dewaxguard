@@ -17,9 +17,8 @@
 | [M-09](M09-sync-gap-detection.md) | Aggregate-vs-per-entity SYNC_GAP | XRPL CONF-1 | Any aggregate counter gating a state transition is a SYNC_GAP candidate |
 | [M-10](M10-prior-audit-dedup.md) | Pre-submission 3-layer dedup | XRPL Sherlock submission | Mandatory pre-submission validation — prior audits / GitHub baseline / remediation |
 | [M-11](M11-retired-amendment-poc-feasibility.md) | Retired-amendment PoC feasibility check | XRPL Domain 7 SPON-M1 (not submitted) | Before investing in a finding in a legacy code branch, verify PoC reachability |
-| [M-12](M12-granular-permission-sandbox.md) | Granular permission sandbox ↔ semantic override audit | XRPL Domain 6 DEL-1 (OOS via #6890 — template still valid) | Any "capability templates / per-op masks" system has default-permissive scope creep |
-| [M-13](M13-kuprum-known-issue-index-ingestion.md) | Kuprum-style known-issue index ingestion | XRPL 2026-04 (caught DEL-1 OOS mid-audit) | Ingest 3rd-party non-authoritative known-issue catalogs EARLY in any competitive audit |
-| [M-14](M14-elevated-impact-vs-unchanged-legacy.md) | Elevated-impact vs unchanged-legacy judgment | XRPL 2026-04 L-32 (contested) | Decide whether a bug in unchanged code is IN-SCOPE because a new feature makes it common-case |
+| [M-12](M12-granular-permission-sandbox.md) | Granular permission sandbox ↔ semantic override audit | XRPL Domain 6 DEL-1 | Any "capability templates / per-op masks" system has default-permissive scope creep |
+| [M-15](M15-expiry-race-matrix.md) | Expiry Race Matrix (SLE × interacting-op × race) | XRPL Domain 19 (2026-04-24; ~46 cells populated, 0 Medium+ submissions but template validated + 1 adjacent Low MP-1 surfaced) | Systematic audit of time-gated state transitions; 4-question matrix per cell (who wins at boundary / observable / triggerable / profitable asymmetry); enumerates cross-language ordering mechanisms (canonical, Batch/multicall, MEV-boost, Jito bundle, Solana instruction array, Sui PTB) |
 
 ## How to use
 
@@ -33,9 +32,7 @@
 
 ## Per-audit high-yield template
 
-From the XRPL audit: **M-08 accounts for 4 of 4 submittable Mediums** (5/5 at writeup, reduced to 4/4 after DEL-1 OOS via kuprum dedup; M-12 was M-08-adjacent). Start every audit by running M-08 probe on every privileged operation. Yield > effort by a wide margin.
-
-**M-13 is now equally critical for competitive audits** — ingesting a kuprum-style known-issue index before domain runs saved ~6h of wasted PoC development on DEL-1.
+From the XRPL audit: **M-08 accounts for 5 of 5 Mediums**. Start every audit by running M-08 probe on every privileged operation. Yield > effort by a wide margin.
 
 ## Contribution guide
 
