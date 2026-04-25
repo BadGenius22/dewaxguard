@@ -109,7 +109,7 @@ If you want to ship over a sprint: Tier 1 (#1, #2, #3) + Tier 2 #4. That's: hard
 
 | Tier | Item | Status | Owner |
 |---|---|---|---|
-| 1.1 | Mandatory session-start load | SHIPPED (commit: 8bc4622) | — |
+| 1.1 | Mandatory session-start load | SHIPPED (commit: 4130be6) | — |
 | 1.2 | Trigger-pattern matching | NOT_STARTED | — |
 | 1.3 | Negative-results retrieval | NOT_STARTED | — |
 | 2.4 | Mandatory Phase A retrospective | NOT_STARTED | — |
