@@ -12,6 +12,7 @@
 | [conf1-flag-clear-brick.md](conf1-flag-clear-brick.md) | CONF-1 | M-08 + M-09 SYNC_GAP | Confidential MPT (XLS-0096) | Medium |
 | [l30-pathrequest-missing-else.md](l30-pathrequest-missing-else.md) | L-30 | Variant-refactor regression (new class) | MPT DEX | Low |
 | [l31-accountdestassets-mpt-asymmetry.md](l31-accountdestassets-mpt-asymmetry.md) | L-31 | Parallel-branch asymmetry (new class) | MPT DEX | Low |
+| [l33-escrowcreate-sponsor-reserve-over-restriction.md](l33-escrowcreate-sponsor-reserve-over-restriction.md) | L-33 | Silent-default-arg sponsor elision (new class — paired-transactor asymmetry) | Sponsored Fees (XLS-0068) | Low |
 
 ## Held / OOS
 
@@ -28,19 +29,20 @@
 - **Variant-refactor regression**: L-30 — MPT-aware refactor lost an `else` keyword inside a new lambda
 - **Parallel-branch asymmetry**: L-31 — new MPT branch in dest-asset helper used inconsistent condition vs parallel IOU branch
 - **Filter-counter ordering (M-14)**: L-32 — pagination counter increments pre-filter, drained by new sponsored filter (contested)
+- **Silent-default-arg sponsor elision**: L-33 — `EscrowCreate.cpp:410-414` passes `{}` for `sponsorSle` to `checkInsufficientReserve` (cf. `PaymentChannelCreate.cpp:73-74` which passes `sponsor`); over-counts `ownerReserveUnits` by 1 `incrementReserve` for sponsored XRP escrows. Discovered via Domain 19 M-15 expiry-race scan; cross-site comparison was dispositive.
 
 ## Reward pool coverage (FINAL)
 
 | Pool (XLS) | Status |
 |------------|--------|
 | Batch (XLS-0056) | **Cleared** in Domain 3 (no submittable findings, 14 DA attempts) |
-| Sponsored Fees (XLS-0068) | **Cleared** in Domain 7 (FYEO remediations verified); L-32 candidate held per M-14 |
+| Sponsored Fees (XLS-0068) | **Cleared** in Domain 7 (FYEO remediations verified); L-32 candidate held per M-14; **L-33 discovered Domain 19 (POC-PASS, NEW-in-delta) — submission pending; if accepted, restores 3/5 pool coverage** |
 | Permission Delegation (XLS-0075) | **Lost** — DEL-1 reclassified OOS via M-13 kuprum dedup on 2026-04-23. Alternative hunt produced no novel finding (R-66 in local manifest) |
 | MPT DEX (XLS-0082) | **Hit** — ESC-1, ESC-2, ESC-3 + L-30, L-31 drafted |
 | Confidential MPT (XLS-0096) | **Hit** — CONF-1 |
 | Dynamic MPT (XLS-0094) | **Not targeted** — 0 probes. Only unhit reward pool with no Medium attempts. |
 
-**2 of 5 pools covered with submittable findings.** If L-32 is accepted, Sponsored Fees becomes 3/5.
+**2 of 5 pools covered with submittable findings.** If L-33 (POC-PASS) is submitted and accepted, Sponsored Fees becomes 3/5.
 
 ## Key takeaways for future XRPL audits
 

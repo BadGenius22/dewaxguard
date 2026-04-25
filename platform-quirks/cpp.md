@@ -501,3 +501,48 @@ audit/2026-04-xrp-ledger-april-2026-BadGenius22/scratchpad/learned/00_MANIFEST.m
 Current counts (post-2026-04-23 update): F-01..F-35, R-01..R-68, D-01..D-30, T-01..T-09, L-01..L-32, M-01..M-14.
 
 For the next XRPL audit: copy the F/R/D/T/L entries into this file's XRPL-specific section, deduplicating against what's already here. Keep M-xx entries in `../methodology/` (cross-language).
+
+---
+
+## Sherlock XRPL April 2026 — additional D15/D16 lessons
+
+These entries supplement the F/R/D/T/L/M block above with learnings from the second-half domains (D15 mpt-crypto cryptographic library + D16 XLS-0094 Dynamic MPT). They capture XRPL/rippled-specific patterns that complement the cross-language M-16 / M-17 templates.
+
+### D15 mpt-crypto cryptographic library (6,364 LoC C, OpenSSL + libsecp256k1)
+
+- **F-05 universal `seckey_verify` discipline trades completeness for soundness** — every kuprum mpt-crypto# bug filed against this library is in the completeness class (legitimate proofs rejected as malformed inputs), zero in the soundness class (forged proofs accepted). This makes the library audit fundamentally biased: if your hypothesis is "library accepts an invalid proof," the prior probability is very low; if your hypothesis is "library rejects a valid proof," apply M-11 (PoC feasibility) before investing.
+- **Verifier-derived public commitments pattern (M-16 D-37)** — when a value is needed in the verification equation but should NOT be prover-supplied (because attacker would forge it), the verifier computes it from public inputs. ConvertBack `pc_rem = PC_b - amount*G` is the canonical instance: balance commitment minus the publicly-revealed amount commitment yields the remainder commitment, with no opportunity for prover manipulation. Audit pattern: for every range proof in a confidential protocol, ask "where does the proven commitment come from?" If from the prover, look for substitution attacks; if verifier-derived from public inputs, the attack surface collapses.
+- **Orphan-public-API filter (M-16 D-35)** — before deep crypto soundness analysis on any public function in `secp256k1_mpt.h`, grep the consumer layer (rippled `xrpld/`) for reachability. Three orphan public APIs were identified in mpt-crypto (Send doubly-bound spending balance variant, two unused commitment helpers). Findings against orphan APIs are **T-07 PoC-blocked** (no public-tx PoC exists because no transactor calls them). Save 20% of audit depth budget by filtering orphans first.
+- **Prover-verifier `seckey_verify` symmetry seam (F-39)** — every cryptographic operation has a prover side and a verifier side. If the prover validates `seckey_verify` but the verifier doesn't (or vice versa), the asymmetry is either a completeness bug (verifier rejects what prover happily produces) or a soundness gap (verifier accepts what prover should never have produced). Audit checklist: for every primitive, list the `seckey_verify` calls on both sides and match them.
+- **Two-primitive amount-binding (D-38)** — when a confidential operation reveals an amount, the amount must be bound by TWO primitives: (1) a sigma protocol binds the balance commitment to the plaintext, (2) a Bulletproof binds the verifier-derived remainder to a non-negative range. Single-primitive bindings (sigma alone, BP alone) are vulnerable to substitution; two-primitive composition closes kuprum rippled#6885/#6886 "POSSIBLE" branches on the SAFE side.
+- **Fresh-salt nonce defense-in-depth (D-41)** — every Fiat-Shamir transcript in mpt-crypto begins with a fresh salt (`generate_salt`) before any context fields. Even if a context field were missing, the fresh salt prevents direct proof-replay across sessions. This is defense-in-depth; the primary defense remains complete context binding (Quirk #7).
+- **Paired-transactor binding comparison (F-42)** — when two transactors (`Send` and `ConvertBack`, or `EscrowCreate` and `PaymentChannelCreate` in D19's L-33) handle related operations, their binding/auth idioms must match. Asymmetric handling across paired transactors is a high-confidence bug signal. The cross-site comparison is faster and more dispositive than reasoning about each site in isolation.
+
+### D16 XLS-0094 Dynamic MPT flag mutation (~611 LoC)
+
+- **SOLE-writer pattern (D-45)** — only `MPTokenIssuanceSet::doApply` writes mutable fields post-Create. This structurally enforces immutability for `lsmfMPTCanMutate*` bits (the mutation-allowed bits themselves cannot be flipped after Create) — verified by 4-agent independent convergence in Domain 16. When auditing any mutable-config system, identify the SOLE post-Create writer and verify (a) only one such writer exists, (b) the writer cannot mutate the mutation-allowed bits themselves.
+- **Asymmetric on-chain-state lock-in (D-42 / M-17 archetype)** — `ltESCROW` snapshots `sfTransferRate` at Create time (immune to future flag flips); `ltOFFER`/`ltCHECK`/`Payment` read live (affected by future flag flips). This asymmetry across SLE types means a mutable config flag has DIFFERENT semantics depending on which downstream consumer reads it. Audit checklist for mutable flags: enumerate ALL consumers, classify each as "snapshot-at-create" vs "live-read." Mismatch in downstream invalidation creates the M-17 finding class.
+- **Inverse-polarity flag in mostly-positive flag families (D-44, D-21 generalization)** — `lsmfMPTCannotMutateCanConfidentialAmount` has CANNOT polarity inside a CanMutate family that is otherwise positive. The polarity inversion is a documented audit-smell tracked as D-44 manifest entry: every flag family must be polarity-audited for outliers. Inverse-polarity flags in positive families (or vice versa) are high-confidence sources of off-by-one logic in callers that "treat all flags the same way."
+- **Cross-class preflight firewall (F-46)** — `MPTokenIssuanceSet` preflight rejects flag combinations that violate cross-class invariants BEFORE doApply. This is the canonical "reject-early" pattern for mutable config: validate the new flag state against (a) current state, (b) cross-flag coupling rules, (c) downstream consumer compatibility — at preflight, not doApply. Halves the attack surface for flag-mutation findings.
+- **Fresh consumer reads / no grandfathering (F-47)** — XRPL's design intent is that consumers always read the LIVE flag state, not a snapshot at consumer-create time. The `ltESCROW` exception (snapshot of sfTransferRate) is a deliberate carve-out, NOT a general pattern. When auditing mutable-config systems, the default assumption should be "consumers read live state" — every snapshot site is a potential lock-in finding (M-17 archetype) requiring explicit design justification.
+- **XLS-0075 sandbox common-fields admit sponsor (F-48)** — the XLS-0075 granular permission sandbox `checkGranularSemantics` default-success behavior (F-19) extends to common fields including `sfSponsor`. Composing XLS-0075 delegate + XLS-0068 sponsor on `MPTokenIssuanceSet` does NOT cross-wire principal/sponsor identity (R-84 — orthogonal compositions). Trust delegation findings on `MPTokenIssuanceSet` need to demonstrate a NON-orthogonal composition.
+- **Per-inner Batch view = canonical XLS-0056 workaround (T-14)** — for the kuprum #6603 class (flag-clear cleanup race), the canonical workaround is "use Batch with per-inner view" — each inner tx sees the post-flag-flip state. This is a contest trust decision: kuprum #6603 is acknowledged but not a Sherlock finding, since the fix is "compose with Batch."
+
+### Updated baseline known-issue list (post D15/D16)
+
+Add these to the table at the top of this file:
+
+| Issue | Pattern | Status | Source |
+|-------|---------|--------|--------|
+| #6885 / #6886 | mpt-crypto Enc(0)-Enc(X) ConvertBack extraction "POSSIBLE" | **Resolved SAFE** | D15 (D-38 two-primitive amount-binding closes the POSSIBLE branch) |
+| #6603 / #6919 | XLS-0094 flag-clear cleanup race | Known; T-14 Batch workaround canonical | D16 |
+| #1721 | Confidential MPT bypass via Dynamic flag mutation | Known; CONF-1 covered (D14) | D16 cross-reference |
+
+### Updated reference for mpt-crypto and Dynamic MPT audits
+
+The complete F-39..F-48, R-72..R-86, D-35..D-45, T-11..T-14, L-36..L-45 inventory from D15+D16 is preserved at:
+```
+audit/2026-04-xrp-ledger-april-2026-BadGenius22/scratchpad/learned/00_MANIFEST.md
+```
+
+Current counts (post-2026-04-25 update including D15+D16): F-01..F-48, R-01..R-86, D-01..D-45, T-01..T-14, L-01..L-45, M-01..M-17.
