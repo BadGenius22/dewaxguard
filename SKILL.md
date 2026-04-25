@@ -6,6 +6,54 @@ argument-hint: "[light|core|thorough] [path] [options]"
 allowed-tools: Bash(*) Read(*) Write(*) Grep(*) Glob(*) Agent(*)
 ---
 
+## MANDATORY Session-Start Preflight (NON-SKIPPABLE)
+
+> Before ANY audit work begins (recon, breadth, depth, verification, report), the orchestrator MUST read the following files in order. This is a hard rule — skipping any step is a workflow violation per the post-audit improvement protocol.
+
+### Reading order
+
+**Step 1 — Project-local context** (skip if file does not exist; do NOT create):
+1. `{PROJECT_ROOT}/CLAUDE.md` — repo-specific scope rules, build/test commands, audit boundaries
+2. `{PROJECT_ROOT}/DEEP_DIVE_PLAN.md` — strategic plan for THIS audit (domain list, hypotheses, files-in-scope per domain, reward-pool framing). If present, this is the AUTHORITATIVE source for SCOPE_HINTs. Any SCOPE_HINT must derive from it (or explicitly note divergence with reasoning).
+3. `{PROJECT_ROOT}/scratchpad/learned/00_MANIFEST.md` — cumulative within-audit knowledge (F-/R-/D-/T-/L- entries). Pre-refutes hypotheses, shortcuts analysis. Read EVERY session, not just first.
+4. `{PROJECT_ROOT}/scratchpad/CONTEST_FAQ.md` — contest rules, reward pools, scope clarifications
+5. `{PROJECT_ROOT}/context/KNOWN_ISSUES_INDEX_*.md` — third-party known-issue indices for dedup
+
+**Step 2 — Cross-audit context** (skip if file does not exist; load from `~/.claude/skills/dewaxguard/` or equivalent):
+6. `LEARNED_INDEX.md` — one-line summary per past audit; provides historical recall + RC distribution
+7. `methodology/INDEX.md` — registry of M-NN templates with applicability metadata
+8. `platform-quirks/{detected_language}.md` — language-specific lessons (cpp, solidity, rust, move, etc.)
+9. `refuted/INDEX.md` (when this exists post-Tier-1#3 implementation) — cross-audit refuted vulnerability classes
+
+**Step 3 — Trigger-aware methodology selection** (when Tier 1 #2 ships):
+10. For each M-NN with `trigger_grep:` frontmatter, run the grep against the audit codebase. Surface matches as "Applicable methodologies for this audit: M-X, M-Y, M-Z."
+
+### Why this is mandatory
+
+Without these files loaded:
+- Hypotheses already refuted in past sessions get re-investigated (waste)
+- DEEP_DIVE_PLAN intentions diverge from SCOPE_HINTs (lost coverage)
+- Cross-audit M-templates fail to apply when relevant (lost methodology multiplier)
+- Past audit failure modes (RC-METHOD/SCOPE) repeat
+
+### Failure mode
+
+If the orchestrator skips this preflight, all subsequent breadth/depth output is suspect. The post-audit Phase A retrospective will detect this as a recall regression vs prior audits. Log "preflight skipped" to MEMORY.md as a workflow violation.
+
+### Self-check before declaring preflight complete
+
+Before proceeding to audit work, verify:
+- [ ] DEEP_DIVE_PLAN.md was read (or absence noted)
+- [ ] MANIFEST.md was read (or absence noted — first session of new audit)
+- [ ] LEARNED_INDEX.md was read (or absence noted)
+- [ ] methodology/INDEX.md was read
+- [ ] platform-quirks/{language}.md was read for the detected language
+- [ ] Any per-domain SCOPE_HINT to be written next will reference DEEP_DIVE_PLAN.md as primary source
+
+If any check fails, RE-READ the missing file. Do not proceed.
+
+---
+
 # DewaxGuard — Ultimate Smart Contract Security Auditor
 
 ```

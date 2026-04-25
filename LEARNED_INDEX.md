@@ -8,6 +8,10 @@
 - {DATE} | {CHAIN / CONTEST} | {N Mediums + N Highs + ... submitted} | {pointers to enriched files}
 ```
 
+## Session-start preflight is MANDATORY
+
+See `SKILL.md` § "MANDATORY Session-Start Preflight". Every session must read this file plus `methodology/INDEX.md`, `platform-quirks/{language}.md`, and any project-local DEEP_DIVE_PLAN.md / MANIFEST.md before audit work. Violation = workflow regression.
+
 ## Entries
 
 - **2026-04-18** | XRPL Sherlock (C++/rippled) | **5 Mediums** (ESC-1/2/3 + CONF-1 + DEL-1) across **3 of 5 reward pools** (MPT DEX, Confidential MPT, Permission Delegation), remaining 2 pools cleared (Batch + Sponsored Fees) | Added **8 methodology templates** (M-03/04/07/08/09/10/11/12), **5 pattern case studies** in `patterns/xrpl-2026-04/`, full Sherlock contest template bundle in `contest/sherlock/`. XRPL-specific F-01..F-19, R-01..R-34, D-01..D-21, T-01..T-09, L-01..L-17 preserved in project-local manifest at `audit/2026-04-xrp-ledger-april-2026-BadGenius22/scratchpad/learned/00_MANIFEST.md`. Key new templates: **M-08** (5/5 — highest yield), **M-09 SYNC_GAP**, **M-11** (retired-amendment feasibility — saves from submitting PoC-blocked findings), **M-12 granular permission sandbox** (disproportionate pool-diversification value — unlocked 3rd reward pool via DEL-1).
