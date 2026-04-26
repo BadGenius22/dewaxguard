@@ -546,3 +546,33 @@ audit/2026-04-xrp-ledger-april-2026-BadGenius22/scratchpad/learned/00_MANIFEST.m
 ```
 
 Current counts (post-2026-04-25 update including D15+D16): F-01..F-48, R-01..R-86, D-01..D-45, T-01..T-14, L-01..L-45, M-01..M-17.
+
+---
+
+## 🚨 #12 — Delta-Scope Contest Validity Rules (Sherlock-style audits)
+
+> **Read before scoping any "upgrade-delta" contest** (Sherlock, Code4rena variants, Cantina rev-N) where validity hinges on *new or elevated impact* between two specific commits.
+
+### Three rules that override generic severity matrices
+
+1. **Pre-existing-with-unchanged-impact = OUT OF SCOPE (regardless of severity).** A bug that existed in `baseline_commit` and behaves identically in `current_commit` is invalid even if Critical. Generic "did I find a real bug?" thinking will surface a Critical that gets rejected. Always run a delta verification (`git diff baseline_commit..current_commit -- <file>`) on every finding before submission.
+2. **Grief-floor cap.** Findings whose only impact is forced fee-burn / proof-rebuild / state-bloat (no fund loss, no protocol breakage, no permanent denial-of-service beyond the attacker's own cost) cap at **Low**, regardless of how amplifiable the grief is. Grief findings are valid (under "no impact → Low" elevation rules) but must be priced as Low.
+3. **Amendment-gating reachability.** When the contest specifies a specific feature-flag / amendment / hardfork must be enabled for in-scope, any finding reachable only without that activation is out-of-scope. Conversely, a previously-dormant pre-amendment bug whose impact is unlocked by activation IS in-scope as a "no-impact → impact" elevation.
+
+### How to encode this in /dewaxguard
+
+- Recon Agent 3 must record the delta-baseline commit + activation flag set in `build_status.md` as **mandatory** dedup-input alongside the kuprum-style known-issue catalog.
+- Inventory Agent must apply a `[DELTA-OOS]` tag to any finding whose root cause exists at the baseline commit with unchanged impact.
+- Index Agent must apply a `[GRIEF-FLOOR]` tag — capped at Low regardless of severity matrix — to findings classified as fee-burn / proof-rebuild grief without fund loss.
+- Pre-submission Bug Validator must reject any finding without explicit delta-link evidence (file:line in `git diff` output) for delta-scope contests.
+
+### Cross-platform mapping
+
+This pattern is not XRPL-specific; it applies to:
+- **Cosmos SDK upgrade audits** (delta between two `app.go` versions across upgrade-handler boundaries)
+- **EVM proxy-upgrade audits** (delta between implementation N and N+1, with storage-layout invariants gated by initializer)
+- **Solana program upgrade audits** (delta between two compiled `.so` versions, with state migration invariants)
+- **Rust kernel module audits** (LKM delta between two `Cargo.toml` minor versions where ABI is the contract)
+- **Go consensus client audits** (delta between two `geth`/`prysm` releases with feature-flag gating)
+
+The grief-floor and feature-gate-reachability rules also apply to non-delta contests (Code4rena always-on, Cantina ongoing) — they're contest-platform-design choices independent of the delta-scope framing.
