@@ -250,6 +250,18 @@ Before including a finding in the final report, score it against the target plat
 3. **Gate 3 — Trigger**: Prove an unprivileged actor can execute
 4. **Gate 4 — Impact**: Prove material harm to identifiable victim
 
+### Gate 4.5 — Submission-Slot Routing (Code4rena specific):
+
+After Gate 4, BEFORE writing the finding to its severity slot, apply the platform's submission format rules. For Code4rena specifically (per `references/criteria/c4-competitive.md` Submission Format Rules):
+
+- If finding's trigger is privileged-role action AND defense relies on "normal lifecycle" framing → governance/centralization-class → route to **QA-Bundle as L-N entry** (NOT separate Medium file)
+- If AI-4 is contested in validation → governance/centralization-class → same routing
+- If finding's only victim is a trusted actor (operator/governor self-attack with no permissionless extraction) → QA-Bundle
+- All Lows + Informationals → SINGLE consolidated `QA-Bundle.md`
+- Only findings with permissionless trigger AND no admin dependency → separate Medium+ file
+
+**Mandatory pre-submission consolidation gate**: enumerate every Medium/Low candidate and apply the routing matrix. Splitting Lows across multiple files violates Code4rena's one-bundle rule and risks losing QA points.
+
 ### Scoring:
 - Start at 100, deduct for each issue
 - **70+**: Include in report as FINDING

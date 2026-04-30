@@ -115,3 +115,43 @@ Grounds for invalidation despite technical validity:
 - Direct misuse of privileges → QA report only
 - Mistakes in code only reachable through admin mistakes → QA only
 - Privilege escalation → judged by likelihood and impact, up to Medium
+
+---
+
+## Submission Format Rules (CRITICAL — pre-submission consolidation)
+
+Per Code4rena guidance: *"You can only submit one QA report per audit. Please include all low-severity and governance/centralization-risk findings."*
+
+This is a **mechanical routing rule**, not a quality preference. Misrouting a governance/centralization finding to a separate Medium slot risks AI-4 invalidation; routing it to the QA-Bundle preserves QA points.
+
+### Routing matrix
+
+| Finding category | Submission slot |
+|------------------|-----------------|
+| Critical / High / Medium with permissionless trigger and no admin dependency | Separate finding file per item |
+| Medium with governance/centralization root cause | **QA-Bundle (as Low entry)** — NOT a separate Medium file |
+| Low (any) | **QA-Bundle** (one consolidated bundle) |
+| Informational / QA | **QA-Bundle** (same bundle) |
+
+### Trigger heuristic for "governance/centralization finding"
+
+A finding is governance/centralization-class if ANY of these apply:
+- The trigger is a privileged-role action (governor / admin / upgrader setter or rotation)
+- The finding's defense relies on "this is a normal lifecycle action, not misuse"
+- AI-4 is contested in the validation (judge could read it as "admin should have known better")
+- The fix requires a coordination invariant between admin functions, not a permissionless-actor guard
+
+### Pre-submission consolidation gate
+
+Before submission, the orchestrator MUST:
+1. Inventory every Medium / Low candidate
+2. For each, apply the routing matrix above
+3. If a Medium routes to QA-Bundle → fold its full prose into the bundle as an L-N entry (preserve content; retag severity)
+4. Submit ONE QA-Bundle.md containing ALL Lows + Informationals (single-file rule)
+5. Submit individual Medium+ files ONLY for findings that pass the routing matrix
+
+**Validator scoring should flag any non-permissionless-trigger finding submitted as separate Medium** with: `"Routing risk: this finding is governance/centralization-class per Code4rena rules; consider folding into QA-Bundle"`.
+
+### Anti-pattern: splitting Lows across separate files
+
+Submitting 3 separate L-NN.md files instead of one consolidated QA-Bundle.md violates Code4rena's one-bundle rule and may result in only ONE being judged.
