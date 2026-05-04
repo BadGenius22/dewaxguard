@@ -131,11 +131,15 @@ Detect language automatically:
 
 Spawn 4 recon agents in parallel:
 - **1A (RAG probe)**: Tests `mcp__unified-vuln-db__validate_hypothesis` availability with a trivial call. Sets `RAG_TOOLS_AVAILABLE = true/false` in `build_status.md`. Fire-and-forget — Phase 4b.5 reads the flag.
-- **1B (Docs + External)**: Documentation, fork ancestry, external program verification
+- **1B (Docs + External)**: Documentation, fork ancestry, external program verification.
+  - **MANDATORY emit** (per `rules/docs-intent-map.md`): `{SCRATCHPAD}/docs-intent-map.md` — pre-extracted "by design / intentional / accepted trade-off / out of scope" signals from `docs/**.md`, `README.md`, and root-level `*security*.md`/`*architecture*.md`/`*spec*.md`/`*invariant*.md`/`*design*.md`. Phase 5d Gate 1a hard-fails any finding without `docs_intent_check:` populated.
 - **2 (Build + Static)**: Compile, static analysis, grep vulnerability patterns
-- **3 (Patterns + Surface)**: Attack surface mapping, pattern detection, template recommendations
+- **3 (Patterns + Surface)**: Attack surface mapping, pattern detection, template recommendations.
+  - **MANDATORY emit** (per `rules/auth-critical-files.md`): `{SCRATCHPAD}/auth-critical-files.txt` — the per-audit list of files matching the auth-critical allowlist. Files on this list keep full bodies in any squeezed/skeleton bundle; files off the list may be body-collapsed for context efficiency.
 
-Output: 16+ scratchpad artifacts.
+Output: 16+ scratchpad artifacts (including `docs-intent-map.md`, `auth-critical-files.txt`).
+
+> **Tool-call budgets** (per `rules/agent-tool-budgets.md`): every breadth/depth/Nemesis agent operates under a hard Read/Grep cap. Cap defaults are halved in `light` mode, +50% on depth/validator agents in `thorough` mode. Agents end every output with a `budget:` receipt. Findings without `verified:` quotes downgrade to LEAD by default; see `rules/finding-output-format.md`.
 
 ---
 
@@ -246,9 +250,12 @@ Before including a finding in the final report, score it against the target plat
 
 ### Validation Pipeline (per finding):
 1. **Gate 1 — Refutation**: Find the guard that kills the attack
+   - **Sub-gate 1a — Docs intent check** (HARD, per `rules/docs-intent-map.md`): grep `{SCRATCHPAD}/docs-intent-map.md` for the function/feature; REJECT if the docs mark the behavior as `by design`/`intentional`/`accepted trade-off`/`out of scope`/`known limitation`. Emit `docs_intent_check:` field.
+   - **Sub-gate 1b — Auth check** (when finding alleges missing auth, per `rules/auth-critical-files.md`): confirm whether the source file was emitted `[full-bodies]` or `[collapsed]`; if collapsed, the body must be Read before the finding can stand. Emit `auth_check:` field.
 2. **Gate 2 — Reachability**: Prove the vulnerable state exists in production
 3. **Gate 3 — Trigger**: Prove an unprivileged actor can execute
 4. **Gate 4 — Impact**: Prove material harm to identifiable victim
+   - **Sub-gate 4a — Severity decision tree** (HARD, per `rules/severity-decision-tree.md`): apply the a/b/c questions IN ORDER. The first YES determines severity. Emit `severity_check:` field. Findings whose claimed severity exceeds the tree result get a 10-30 point deduction in the validator score.
 
 ### Gate 4.5 — Submission-Slot Routing (Code4rena specific):
 
@@ -414,7 +421,11 @@ dewaxguard/
 │   ├── chain-analysis-prompt.md
 │   ├── report-template.md
 │   ├── fork-poc-execution.md         # NEW: Fork PoC rules
-│   └── severity-matrix.md
+│   ├── severity-matrix.md
+│   ├── docs-intent-map.md            # NEW (1.7.0): false-positive killer for documented intent
+│   ├── severity-decision-tree.md     # NEW (1.7.0): hard a/b/c severity tree applied at Phase 5d
+│   ├── auth-critical-files.md        # NEW (1.7.0): allowlist for files that must keep full bodies
+│   └── agent-tool-budgets.md         # NEW (1.7.0): per-agent Read/Grep caps
 └── references/
     ├── attack-vectors/
     │   └── attack-vectors.md

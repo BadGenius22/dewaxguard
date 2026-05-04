@@ -1,5 +1,35 @@
 # DewaxGuard Changelog
 
+## [1.7.0] - 2026-05-04
+
+**Origin**: Cross-pollination from cosminmarian53/skills `soroban-auditor` (commit 1 of 2). Prompt-only false-positive guards. Zero new agents, zero new scripts — pure rule additions and prompt edits.
+
+### Added
+
+- **`rules/docs-intent-map.md`** — pre-extracted "by design / intentional / accepted trade-off / out of scope / known limitation / expected behavior" signals from project docs, emitted by Recon Agent 1B. Phase 5d Gate 1a (Refutation) hard-fails any finding without a populated `docs_intent_check:` field. Prevents the entire FP class where agents file findings on documented behavior and the validator manually re-rejects them at submission time. Source artifact: `{SCRATCHPAD}/docs-intent-map.md`.
+- **`rules/severity-decision-tree.md`** — 3-question ordered tree applied at Phase 5d Gate 4a. The first YES determines severity: (a) directly stolen/lost/locked → HIGH; (b) core function broken / liveness / compounding accounting drift → MEDIUM; (c) else → LOW/QA. Findings whose claimed severity exceeds the tree result get a 10-30 point deduction in the bug-validator score. Replaces ad-hoc severity reasoning with a defensible mechanical procedure.
+- **`rules/auth-critical-files.md`** — allowlist of files (admin/access-control/auth/emergency/upgrade/governance/multisig substrings + per-language entry-point lists) whose bodies MUST be emitted in full by any future squeezed/skeleton bundle. Pairs with the new `auth_check:` field requirement: findings alleging missing auth must record whether they read the actual body (`SAW_FULL_BODY` / `SAW_GUARD` / `SKELETON_ONLY`). Prevents the high-volume "missing require_auth" hallucination produced when a body-collapsing preprocessor hides the guard. Recon Agent 3 emits `{SCRATCHPAD}/auth-critical-files.txt` per audit.
+- **`rules/agent-tool-budgets.md`** — per-agent Read/Grep caps (e.g. vector-scan 4/6, access-control 5/6, depth-token-flow 8/6, bug-validator 12/8). Halved in `light` mode, +50% on depth/validator in `thorough` mode. Mandatory greps (e.g. access-control → `guard-map.md`, validator → `docs-intent-map.md`) count against budget but cannot be skipped. Agents end every output with a `budget:` receipt; over-budget hypotheses convert to LEADs flagged `tool_budget_exhausted: true` for follow-up by depth or validator phases.
+
+### Changed
+
+- **`rules/finding-output-format.md`** — `verified:` field is now MANDATORY for every FINDING (not LEADs). Must paste the actual ±2 lines from the source around the cited bug location. No paste = auto-reject by the validator harness. Three additional fields added that Phase 5d populates: `docs_intent_check:`, `severity_check:`, `auth_check:`.
+- **`agents/hacking-agents/shared-rules.md`** — added the `verified:` requirement, the tool-budget rule, the auth-critical-file rule, and an extended FINDING/LEAD output template that includes `verified:`, `tool_budget_exhausted:`, and the `budget:` receipt line.
+- **`SKILL.md`** Phase 1 Recon — Agent 1B now MUST emit `docs-intent-map.md`; Agent 3 now MUST emit `auth-critical-files.txt`. Phase 5d Validation Pipeline — Gate 1 split into 1a (docs-intent) + 1b (auth-check); Gate 4 gains 4a (severity decision tree). File-structure listing updated to reflect the four new rules files.
+
+### Why this release matters
+
+`soroban-auditor` (Pashov-fork by cosminmarian53) ships four mechanical FP guards that dewaxguard previously handled in prompt-space (variable, agent-by-agent). Codifying them as rules + mandatory validator fields means:
+
+- Documented "by design" behavior is rejected at validation time, not at submission time — saves judging cycles.
+- Severity reasoning produces an audit trail (`severity_check: a=NO, b=YES → MEDIUM`) instead of an opinion.
+- Body-collapse hallucinations are categorically prevented for auth-critical files instead of relying on per-agent vigilance.
+- Tool-budget receipts let the orchestrator detect both under-spending (cautious agents) and over-spending (loose prompts) systematically.
+
+These are all prompt/rule changes. Commit 2 (next) ports the deterministic recon-map builder script and the Rust source squeezer that consume the artifacts.
+
+---
+
 ## [1.6.0] - 2026-04-30
 
 **Validated in**: Monetrix audit (Code4rena, April 24 – May 4, 2026)

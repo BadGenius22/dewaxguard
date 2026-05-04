@@ -31,18 +31,30 @@ FINDINGs have concrete, unguarded, exploitable attack paths. LEADs have real cod
 
 **Every FINDING must have a `proof:` field** — concrete values, traces, or state sequences from the actual code. No proof = LEAD, no exceptions.
 
+**Every FINDING must have a `verified:` field** — paste the actual ±2 lines from the source around the cited line. No paste = LEAD, no exceptions. See `rules/finding-output-format.md`.
+
+**Tool-call budget**: every agent operates under a hard Read/Grep cap defined in `rules/agent-tool-budgets.md`. When the budget exhausts, convert remaining hypotheses to LEADs flagged `tool_budget_exhausted: true`. Do NOT continue calling tools past the cap. End every output with a one-line `budget:` receipt.
+
+**Auth-critical files**: when a finding alleges missing auth / access-control / role check, follow the rules in `rules/auth-critical-files.md`. Do NOT claim a missing-auth bug from a `[collapsed]` skeleton view alone — Read the body first, or DOWNGRADE to LEAD.
+
 **One vulnerability per item.** Same root cause = one item. Different fixes needed = separate items.
 
 ```
 FINDING | contract: Name | function: func | bug_class: kebab-tag | group_key: Contract | function | bug-class
 path: caller → function → state change → impact
 proof: concrete values/trace demonstrating the bug
+verified: |
+  Lxx:   <line of source code>
+  Lyy:   <±2 lines around the cited bug location>
 description: one sentence
 fix: one-sentence suggestion
 
 LEAD | contract: Name | function: func | bug_class: kebab-tag | group_key: Contract | function | bug-class
 code_smells: what you found
 description: one sentence explaining trail and what remains unverified
+tool_budget_exhausted: true | false   # set true if you ran out of Read/Grep budget
+
+budget: reads=N/MAX greps=N/MAX — <one-sentence note on remaining capacity>
 ```
 
 The `group_key` enables deduplication: `ContractName | functionName | bug_class`. Agents may add custom fields.
