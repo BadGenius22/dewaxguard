@@ -129,15 +129,41 @@ Detect language automatically:
 
 > **C/C++ (consensus-node) note**: When `LANGUAGE=cpp`, the orchestrator MUST pass `~/.claude/skills/dewaxguard/platform-quirks/cpp.md` as context to every spawned agent. The quirks file documents 11 critical behaviors specific to XRPL/rippled-style consensus nodes (TER result class semantics, transactor phase ordering, amendment gating, SLE field access, consensus determinism, invariant coverage, Fiat-Shamir context binding, owner count accounting, cross-tx composition, assertions-are-noops, C++ UB traps) plus a baseline known-issue list (XRPL issues #6863, #6867, #6875, #6884, #6894, #6895, #6908) for deduplication. Every finding must be cross-checked against the known-issue list. See `prompts/cpp/phase4b-lowlevel-templates.md` and `prompts/cpp/phase4b-runtime-templates.md` for the depth templates.
 
-Spawn 4 recon agents in parallel:
-- **1A (RAG probe)**: Tests `mcp__unified-vuln-db__validate_hypothesis` availability with a trivial call. Sets `RAG_TOOLS_AVAILABLE = true/false` in `build_status.md`. Fire-and-forget — Phase 4b.5 reads the flag.
-- **1B (Docs + External)**: Documentation, fork ancestry, external program verification.
-  - **MANDATORY emit** (per `rules/docs-intent-map.md`): `{SCRATCHPAD}/docs-intent-map.md` — pre-extracted "by design / intentional / accepted trade-off / out of scope" signals from `docs/**.md`, `README.md`, and root-level `*security*.md`/`*architecture*.md`/`*spec*.md`/`*invariant*.md`/`*design*.md`. Phase 5d Gate 1a hard-fails any finding without `docs_intent_check:` populated.
-- **2 (Build + Static)**: Compile, static analysis, grep vulnerability patterns
-- **3 (Patterns + Surface)**: Attack surface mapping, pattern detection, template recommendations.
-  - **MANDATORY emit** (per `rules/auth-critical-files.md`): `{SCRATCHPAD}/auth-critical-files.txt` — the per-audit list of files matching the auth-critical allowlist. Files on this list keep full bodies in any squeezed/skeleton bundle; files off the list may be body-collapsed for context efficiency.
+### Phase 1.0 — Deterministic preprocessors (run BEFORE recon agents)
 
-Output: 16+ scratchpad artifacts (including `docs-intent-map.md`, `auth-critical-files.txt`).
+Before spawning recon agents, the orchestrator runs two deterministic scripts that emit stable greppable artifacts. This replaces ad-hoc per-agent grep work, lowers token cost, and gives every downstream agent (breadth, depth, Nemesis, validator) the same source-of-truth artifacts.
+
+```bash
+# 1. Build recon maps (per rules/docs-intent-map.md, rules/auth-critical-files.md)
+scripts/build_recon_maps.sh \
+    --lang  $LANGUAGE \
+    --src   ./contracts \
+    --out   $SCRATCHPAD \
+    --docs  .
+
+# 2. Squeeze sources (Rust today; Solidity/Move squeezers are follow-ons)
+#    Allowlist comes from $SCRATCHPAD/auth-critical-files.txt.
+python3 scripts/squeezers/squeezer_rust.py \
+    --collapse-bodies --numbered \
+    --keep-full "$(tr '\n' ',' < $SCRATCHPAD/auth-critical-files.txt)" \
+    $(find ./contracts -name '*.rs' -not -path '*/target/*' -not -path '*/tests/*' -not -name '*test*.rs') \
+    > $SCRATCHPAD/core-minified.rs
+```
+
+Artifacts emitted under `$SCRATCHPAD`:
+- `guard-map.md`, `state-flags.md`, `integration-map.md`, `math-map.md`, `unsafe-map.md`, `logic-anomaly-map.md`, `blackhat-maps.md`, `divergence-map.md`, `invariant-extract.md`
+- `docs-intent-map.md` — consumed by Phase 5d Gate 1a (HARD)
+- `auth-critical-files.txt` — consumed by the squeezer and by every agent claiming missing-auth
+- `core-minified.rs` — body-collapsed source bundle with `[full-bodies]` / `[collapsed]` tags per file
+
+### Phase 1.1 — Recon agents (4 in parallel)
+
+- **1A (RAG probe)**: Tests `mcp__unified-vuln-db__validate_hypothesis` availability with a trivial call. Sets `RAG_TOOLS_AVAILABLE = true/false` in `build_status.md`. Fire-and-forget — Phase 4b.5 reads the flag.
+- **1B (Docs + External)**: Documentation review, fork ancestry, external program verification. Reads `docs-intent-map.md` (already emitted by Phase 1.0) and augments with judgment about which intent signals are load-bearing.
+- **2 (Build + Static)**: Compile, static analysis, grep vulnerability patterns. Cross-references `unsafe-map.md` (already emitted).
+- **3 (Patterns + Surface)**: Attack surface mapping, pattern detection, template recommendations. Augments `auth-critical-files.txt` with per-protocol-type entries (e.g. lending → `pool-configurator/`, vault → `Vault.sol`).
+
+Output: 16+ scratchpad artifacts (Phase 1.0 maps + Phase 1.1 agent outputs).
 
 > **Tool-call budgets** (per `rules/agent-tool-budgets.md`): every breadth/depth/Nemesis agent operates under a hard Read/Grep cap. Cap defaults are halved in `light` mode, +50% on depth/validator agents in `thorough` mode. Agents end every output with a `budget:` receipt. Findings without `verified:` quotes downgrade to LEAD by default; see `rules/finding-output-format.md`.
 
@@ -426,6 +452,10 @@ dewaxguard/
 │   ├── severity-decision-tree.md     # NEW (1.7.0): hard a/b/c severity tree applied at Phase 5d
 │   ├── auth-critical-files.md        # NEW (1.7.0): allowlist for files that must keep full bodies
 │   └── agent-tool-budgets.md         # NEW (1.7.0): per-agent Read/Grep caps
+├── scripts/                          # NEW (1.7.0): deterministic recon preprocessors
+│   ├── build_recon_maps.sh           #   multi-language map builder (evm/solana/stellar/aptos/sui/cpp)
+│   └── squeezers/
+│       └── squeezer_rust.py          #   Rust source body-collapse with auth-critical allowlist
 └── references/
     ├── attack-vectors/
     │   └── attack-vectors.md

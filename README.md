@@ -82,6 +82,34 @@ Phase 6:    Report (submission-ready)
 - **Nemesis cross-feed**: Feynman technique + State Inconsistency mapping
 - **Plamen pipeline**: Full audit orchestration framework
 - **Bug Validator**: Platform-specific judging criteria (C4, Sherlock, Cantina, Immunefi)
+- **Recon map builder & Rust squeezer (v1.7.0)**: Ported from [cosminmarian53/skills `soroban-auditor`](https://github.com/cosminmarian53/skills/tree/main/soroban-auditor) (MIT). Generalizes the deterministic preprocessor + body-collapse approach from Soroban-only to multi-language (evm/solana/stellar/aptos/sui/cpp).
+
+## Recon scripts (v1.7.0)
+
+Two deterministic preprocessors that emit greppable artifacts before agents spawn — replaces ad-hoc per-agent grep work, reduces token cost, and produces stable cross-agent context.
+
+```bash
+# Build all recon maps (guard, state-flags, integration, math, unsafe,
+# logic-anomaly, blackhat, divergence, invariant-extract, docs-intent,
+# auth-critical-files allowlist) into $SCRATCHPAD.
+scripts/build_recon_maps.sh \
+    --lang stellar \
+    --src ./contracts \
+    --out ./scratchpad \
+    --docs .                # default: ./ for docs/, README.md, etc.
+
+# Squeeze Rust sources for context-light agent bundles. Auth-critical
+# allowlist files keep full bodies; others collapse fn bodies to `{ ... }`.
+python3 scripts/squeezers/squeezer_rust.py \
+    --collapse-bodies --numbered \
+    --keep-full "admin.rs,access_control,token/src/contract.rs" \
+    contracts/**/*.rs > ./scratchpad/core-minified.rs
+```
+
+The artifacts are consumed by:
+- `rules/docs-intent-map.md` — Phase 5d Gate 1a (validator) hard-fails findings without `docs_intent_check:` populated against the docs-intent map.
+- `rules/auth-critical-files.md` — agents must record `auth_check: SAW_FULL_BODY / SAW_GUARD / SKELETON_ONLY` for any missing-auth claim, derived from the squeezer's `[full-bodies]` / `[collapsed]` tag.
+- `rules/agent-tool-budgets.md` — mandatory greps against `guard-map.md`, `integration-map.md`, etc. count against per-agent Read/Grep budgets but cannot be skipped.
 
 ## Requirements
 

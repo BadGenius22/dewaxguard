@@ -1,5 +1,46 @@
 # DewaxGuard Changelog
 
+## [1.8.0] - 2026-05-04
+
+**Origin**: Cross-pollination from cosminmarian53/skills `soroban-auditor` (commit 2 of 2). Deterministic recon-artifact builder + Rust source squeezer. Builds on the v1.7.0 prompt-only guards by giving them concrete artifacts to consume.
+
+### Added
+
+- **`scripts/build_recon_maps.sh`** — multi-language deterministic recon preprocessor. Runs in Phase 1.0 (BEFORE recon agents spawn) and emits 11 stable greppable artifacts under `$SCRATCHPAD`:
+  - `guard-map.md`, `state-flags.md`, `integration-map.md`, `math-map.md`, `unsafe-map.md`, `logic-anomaly-map.md`, `blackhat-maps.md`, `divergence-map.md` (curated near-twin pairs diffed via `difflib.unified_diff`), `invariant-extract.md` (harvested from `fuzz/invariants.*`).
+  - `docs-intent-map.md` (consumed by Phase 5d Gate 1a — see `rules/docs-intent-map.md`).
+  - `auth-critical-files.txt` (consumed by the squeezer and by every agent claiming missing-auth — see `rules/auth-critical-files.md`).
+
+  Per-language pattern banks for `evm` / `solana` / `stellar` / `aptos` / `sui` / `cpp`. Curated divergence pairs per language (e.g. lending: `supply` vs `supply_on_behalf`, `liquidation_call` vs `internal_liquidation_call`, `flash_loan` vs `flash_loan_simple`). Repo-augmentable via `$OUT/divergence-pairs.txt`.
+
+  **Validation**: smoke-tested against the K2 audit codebase (Stellar Soroban, ~15K SLoC). Produced 252 guard-map entries, 488 state-flags, 1005 integration sites, 351 math sites, 808 pub-fn signatures, 23 auth-critical files, and 921 invariant lines — empty unsafe-map (correctly, Soroban has no unsafe surface). Total recon-stage tokens emitted to disk in <1s.
+
+- **`scripts/squeezers/squeezer_rust.py`** — Rust source minifier ported (with attribution) from cosminmarian53/skills `soroban_token_squeezer.py` (MIT). Generalizes from Soroban-only to Anchor and native Solana — the brace-counter/string-escape logic is language-feature-agnostic Rust. Modes: `--collapse-bodies` (replace each `fn ... { body }` with `{ ... }`, brace-counted, respects strings/chars/raw strings/comments), `--numbered` (line numbers post-minification), `--keep-full F,G` (substring allowlist that bypasses collapse for auth-critical files). Emits `[full-bodies]` / `[collapsed]` tags per file consumed by `rules/auth-critical-files.md`.
+
+  **Validation**: smoke-tested on K2's `kinetic-router/src/admin.rs` (6,844 bytes uncollapsed → 2,167 bytes collapsed = ~68% reduction). Allowlist correctly preserves bodies of `admin.rs`, `access_control.rs`, `token/src/contract.rs`, etc.
+
+### Changed
+
+- **`SKILL.md` Phase 1** — split into Phase 1.0 (deterministic preprocessors, run BEFORE agents) + Phase 1.1 (4 recon agents, run AFTER preprocessors). Recon Agent 1B and Agent 3 now augment the pre-built artifacts rather than emitting them from scratch — same end state, much faster, deterministic.
+- **`SKILL.md` file-structure listing** — adds the `scripts/` tree.
+- **`README.md`** — adds a "Recon scripts (v1.7.0)" section showing the standard invocation; adds upstream attribution under "Methodology Sources".
+
+### Why this release matters
+
+The v1.7.0 prompt-only rules created mandatory validator fields (`docs_intent_check`, `auth_check`, `severity_check`) but agents had to re-grep the docs/auth surface every time. v1.8.0 ships the deterministic preprocessor that emits the source-of-truth artifacts ONCE, and every downstream agent reads from them.
+
+Token budget impact (measured on K2 stellar smoke test):
+- Without preprocessor: each of 8 breadth agents would re-grep `require_auth` across 95 `.rs` files = 8× the same work.
+- With preprocessor: one bash pass produces `guard-map.md` (252 lines) consumed by all 8 agents.
+
+False-positive impact: the squeezer's `[full-bodies]` / `[collapsed]` tags categorically prevent the body-collapse hallucination class. Findings alleging missing-auth on a `[collapsed]` file MUST Read the body or DOWNGRADE to LEAD per `rules/auth-critical-files.md`.
+
+### Compatibility
+
+The preprocessor is OPTIONAL — the skill works without it (agents fall back to direct grep). When run, it merely accelerates and stabilizes the recon stage. To skip, omit Phase 1.0; the validator falls back to grep-time docs-intent checks. To keep the FP guards but skip the squeezer, run only `build_recon_maps.sh` and let agents Read source files directly.
+
+---
+
 ## [1.7.0] - 2026-05-04
 
 **Origin**: Cross-pollination from cosminmarian53/skills `soroban-auditor` (commit 1 of 2). Prompt-only false-positive guards. Zero new agents, zero new scripts — pure rule additions and prompt edits.
