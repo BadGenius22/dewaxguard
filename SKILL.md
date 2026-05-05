@@ -451,7 +451,9 @@ dewaxguard/
 │   ├── docs-intent-map.md            # NEW (1.7.0): false-positive killer for documented intent
 │   ├── severity-decision-tree.md     # NEW (1.7.0): hard a/b/c severity tree applied at Phase 5d
 │   ├── auth-critical-files.md        # NEW (1.7.0): allowlist for files that must keep full bodies
-│   └── agent-tool-budgets.md         # NEW (1.7.0): per-agent Read/Grep caps
+│   ├── agent-tool-budgets.md         # NEW (1.7.0): per-agent Read/Grep caps
+│   ├── realism-filter.md             # NEW (1.8.0): first-class permissionless/admin-trust/design-choice tagging applied at Phase 5d before severity tree
+│   └── agent-failure-recovery.md     # NEW (1.8.0): mandatory protocol when agents fail mid-pass — never fall back to manual orchestrator verification
 ├── scripts/                          # NEW (1.7.0): deterministic recon preprocessors
 │   ├── build_recon_maps.sh           #   multi-language map builder (evm/solana/stellar/aptos/sui/cpp)
 │   └── squeezers/

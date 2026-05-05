@@ -171,3 +171,36 @@ When future audits discover new platform quirks, **add them here**. This documen
 
 **History of lessons**:
 - 2026-04 LayerZero audit: Misunderstood state archival as deletion. Wrote 3 findings (1H + 2M) based on "persistent → default on expiry." All invalid. Added #1 above.
+- 2026-05 K2 Lending Protocol audit (Code4rena, 8 passes / 108 hypotheses): Applied state-archival rule correctly — HF21 REFUTED on the first pass that touched it. Validated **M-23 Consistency-Class Sweep** as the highest-yield methodology for Aave V3 forks (14 of 14 QA-Bundle entries follow this pattern). Discovered: K2 forks at Aave V3.3 — verify each subsequent V3.x patch via M-V3-PATCH-ANCESTRY before claiming a missing-fix finding (Pass 7 HF49 swept all V3.0.1/V3.0.2/V3.1/V3.2/V3.3 patches: all PRESENT or N/A by design). Added stellar-specific quirks below:
+
+## #9 — Aave V3 Forks on Soroban: V3.x Patch Ancestry
+
+K2 Lending Protocol forks at Aave V3.3 (deficit pattern + virtual underlying balance). Other Aave V3 ports may fork at earlier versions and miss intermediate patches. Before claiming any "missing V3 fix" finding, sweep the following:
+
+| V3 Version | Key Patches | K2 Status | Sweep Pattern |
+|-----------|-------------|-----------|---------------|
+| V3.0.1 | `liquidationCall` price-fetch-once | PRESENT | Verify oracle prices fetched once at top of liquidation entry, reused for HF/seize/fee |
+| V3.0.2 | `validateRepay` reentrancy via repay-with-aTokens | N/A by design (no aToken-repay path) | Check for `repayWithATokens` or equivalent |
+| V3.1 | `_updateInterestRates` precision at zero supply/debt | PRESENT | Verify explicit zero-checks before `ray_div` |
+| V3.2 | Virtual underlying balance for treasury | PRESENT | Verify `available_liquidity = total_supply − total_borrow − deficit`; aToken raw balance NOT used as "claimable" |
+| V3.3 | Deficit pattern (bad-debt accumulator) | PRESENT | Verify `add_reserve_deficit` with `checked_add`, `cover_deficit` cap-at-min |
+
+Apply this sweep as **HF-V3-PATCH-ANCESTRY** when auditing any Aave V3 port. Reuse the K2 Pass 7 verdict as a reference (`scratchpad/hf49-v3-patch-history.md` in any K2-style audit).
+
+## #10 — Soroban Auth Args Binding Is Automatic
+
+`addr.require_auth()` (no args) automatically binds the auth signature to ALL invocation args via XDR-encoded `(contract, function, args)` tuples in the user's auth tree. No `require_auth_for_args` is needed for default protection. K2 uses the no-args form across 100+ sites; all are correctly args-bound.
+
+`require_auth_for_args(specific_args)` is ONLY needed for deferred auth (where the function wants to authorize different args than what was passed). If a Soroban contract uses only `require_auth()`, args-substitution attacks are not possible.
+
+## #11 — `try_invoke_contract<T, E>` Type Projection Is Not Verified
+
+When K2 calls `try_invoke_contract::<bool, KineticRouterError>(...)`, the type annotations are a Rust-side projection — they do NOT verify the sub-contract actually returns `bool` or `KineticRouterError`. If the sub-contract returns a different type, the host returns `Err`, which the calling pattern `Ok(Err(_)) | Err(_) => return Err(SpecificError)` correctly collapses to a generic error.
+
+The danger: when the calling code uses `let _: () = env.invoke_contract(...)` (note: `invoke_contract`, not `try_`) the call PANICS on any error. This is actually safer than `try_invoke_contract` for fail-closed semantics. K2 Pass 6 incorrectly flagged the engine's `invoke_contract` call (`liquidation-engine/src/contract.rs:80-81`) as unsafe; Pass 8 corrected this — `invoke_contract` panics → tx aborts → SAFE.
+
+## #12 — Cross-Contract Error Code u32 Collision Is Diagnostic-Only
+
+Multiple Soroban contracts can define `#[contracterror] #[repr(u32)]` enums with overlapping discriminants (e.g., code `1` aliases across `KineticRouterError::InvalidAmount`, `OracleError::AssetPriceNotFound`, `TokenError::InsufficientBalance`, `TreasuryError::NotInitialized`). The `Ok(Err(_)) | Err(_) => return Err(SpecificError)` pattern erases the raw u32 before propagation, so the impact is purely diagnostic noise — NOT a security finding.
+
+If you see error-code collision in a fork-style audit: do NOT escalate as a Medium. File as Informational only.

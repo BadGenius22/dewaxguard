@@ -1,5 +1,39 @@
 # DewaxGuard Changelog
 
+## [1.9.0] - 2026-05-05
+
+**Origin**: K2 Lending Protocol audit (Code4rena Stellar Soroban, 2026-04-17 → 2026-05-27, 8 passes / 108 hypotheses). 14 of 14 QA-Bundle entries followed the same consistency-class pattern → highest-yield methodology for Aave V3 forks. Manual-orchestrator fallback in Pass 7 produced 3 false negatives → codified mandatory agent-failure-recovery protocol. Project-local realism filter reclassified ~40% of candidate findings → promoted to first-class rule.
+
+### Added
+
+- **`methodology/M23-consistency-class-sweep.md`** — Defensive-pattern sweep methodology. For Aave V3 forks and similar protocols with ≥3 instances of the same defensive macro, build a convention catalog (canonical helper + intent source + all call sites), grep for outliers, file each as Low/Info. Validated on K2: 14/14 QA-Bundle entries follow this pattern (~89% of all findings); the 1 submitted Medium also fits the shape. Cross-language mappings for EVM/Solana/Soroban/Move/C++. **Highest-yield methodology for fork-style protocols** — supersedes M-08 yield-per-effort on Aave-style codebases.
+
+- **`methodology/M24-fresh-eyes-surfaces.md`** — Late-stage surface enumeration methodology. After ≥1 prior breadth pass, enumerate 5-8 surfaces NOT covered by current hypothesis set (tertiary contracts, recently-modified files, lightly-used helpers, magic numbers, cross-contract invariants, dead code, test-leaking-into-prod, TODO/FIXME comments). Spawn ONE general-purpose agent with the surface list and 5-finding cap. Validated on K2: 2/2 novel findings (FE-1 → QA-L06 in Pass 5, Observation A → QA-04 in Pass 6) — surfaces no themed pass covered. **Highest-yield late-stage methodology**.
+
+- **`rules/realism-filter.md`** — First-class permissionless/admin-trust/design-choice/unreachable-precondition/semi-trusted-role tagging. Every finding MUST carry a `Realism Filter` tag. Phase 5d (bug validator) applies the filter BEFORE severity-decision-tree. Per-platform defaults table (Code4rena Competitive blocks admin-trust; Sherlock Bug Bounty allows them with -1 tier; etc.). Project-local override via CLAUDE.md "Realism filter" section. Validated on K2: without this filter the audit would have shipped 4-5 contested admin-trust Mediums.
+
+- **`rules/agent-failure-recovery.md`** — Mandatory protocol when agents fail mid-pass (rate-limit cap, runtime error, zero output, timeout). **Forbidden patterns**: orchestrator manual fallback, prompt simplification, quick-grep confirmation, ship-without-verification. **Allowed patterns**: wait for cap reset, retry with identical prompt once, document unverified hypotheses with severity cap, surface failure to user. Codified after K2 Pass 7 manual fallback produced 3 false negatives (HF44 reclassification, HF50 nuance miss, HF51 missed QA-05) that agent retry corrected.
+
+### Changed
+
+- **`platform-quirks/stellar.md`** — Added quirks #9 (Aave V3 fork patch ancestry — V3.0.1/V3.0.2/V3.1/V3.2/V3.3 sweep table for K2-like ports), #10 (Soroban auth args binding is automatic via XDR; `require_auth_for_args` only needed for deferred auth), #11 (`try_invoke_contract<T,E>` type projection is not verified host-side; `invoke_contract` panic-on-error is fail-closed and SAFE — corrects K2 Pass 6 HF44 misclassification), #12 (cross-contract error code u32 collision is diagnostic-only when callers use `Ok(Err(_)) | Err(_) => return Err(SpecificError)` pattern).
+
+- **`methodology/INDEX.md`** — Registered M-23 and M-24. Added per-audit high-yield template guidance: M-23 for Aave V3 forks (replaces M-08 as highest-yield for fork-style protocols); M-24 for late-stage audits (after ≥1 prior pass).
+
+- **`LEARNED_INDEX.md`** — Added K2 Code4rena audit entry (1 Medium + 9 Lows + 5 Info across 8 passes / 108 hypotheses). Updated methodology maturity tracking with M-23 and M-24 validations.
+
+- **`MEMORY.md`** — Added 1.9.0 row with K2 metrics: RC-AGENT = 3 (manual-orchestrator errors corrected by agent retry), Reclassified = 1 (HF44 SAFE not unsafe).
+
+- **`SKILL.md`** — File-structure listing updated to include `realism-filter.md` and `agent-failure-recovery.md` under `rules/`.
+
+### Validation Summary
+
+K2 Code4rena audit (2026-05-05):
+- **8 passes / 108 hypotheses** — yield knee at Pass 6, Pass 7-8 sub-source-level all REFUTED
+- **1 Medium + 9 Lows + 5 Info** = 15 findings; all 14 QA-Bundle entries follow M-23 consistency-class pattern
+- **Pass 7+8 retry via /dewaxguard core** — 7 agents successfully verified after initial usage-cap failure; corrected 3 manual-orchestrator errors
+- **Realism filter** — reclassified ~40% of candidate findings (HF38-b auto-promoted by agent then correctly downgraded; HF41 + HF44 routed to ADDITIONAL_LEADS via V12 dedup)
+
 ## [1.8.0] - 2026-05-04
 
 **Origin**: Cross-pollination from cosminmarian53/skills `soroban-auditor` (commit 2 of 2). Deterministic recon-artifact builder + Rust source squeezer. Builds on the v1.7.0 prompt-only guards by giving them concrete artifacts to consume.
