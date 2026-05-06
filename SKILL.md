@@ -18,6 +18,7 @@ allowed-tools: Bash(*) Read(*) Write(*) Grep(*) Glob(*) Agent(*)
 3. `{PROJECT_ROOT}/scratchpad/learned/00_MANIFEST.md` — cumulative within-audit knowledge (F-/R-/D-/T-/L- entries). Pre-refutes hypotheses, shortcuts analysis. Read EVERY session, not just first.
 4. `{PROJECT_ROOT}/scratchpad/CONTEST_FAQ.md` — contest rules, reward pools, scope clarifications
 5. `{PROJECT_ROOT}/context/KNOWN_ISSUES_INDEX_*.md` — third-party known-issue indices for dedup
+5a. `{PROJECT_ROOT}/*V12*-output.md` / `{PROJECT_ROOT}/*zellic*.md` — V12-style AI-auditor structured findings (if present, run `scripts/grep_v12.sh --count` to confirm presence, then `scripts/grep_v12.sh --invalid-only` to ingest the platform-knowledge corpus per **M-25**). MANDATORY when these files exist — V12 entries are out-of-scope per most contest rules and the `### Invalid Reason` sections are the highest-leverage platform-semantics reading.
 
 **Step 2 — Cross-audit context** (skip if file does not exist; load from `~/.claude/skills/dewaxguard/` or equivalent):
 6. `LEARNED_INDEX.md` — one-line summary per past audit; provides historical recall + RC distribution
@@ -48,6 +49,7 @@ Before proceeding to audit work, verify:
 - [ ] LEARNED_INDEX.md was read (or absence noted)
 - [ ] methodology/INDEX.md was read
 - [ ] platform-quirks/{language}.md was read for the detected language
+- [ ] V12-style outputs were checked for via `scripts/grep_v12.sh --count` (if any exist, `--invalid-only` corpus was ingested per M-25)
 - [ ] Any per-domain SCOPE_HINT to be written next will reference DEEP_DIVE_PLAN.md as primary source
 
 If any check fails, RE-READ the missing file. Do not proceed.

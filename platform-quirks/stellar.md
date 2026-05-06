@@ -1,6 +1,8 @@
 # Stellar / Soroban Platform Quirks — Critical Reference
 
 > **READ THIS BEFORE ANY STELLAR AUDIT.** This document corrects common misconceptions that lead to invalid findings. Every rule, scanner, depth template, and verification prompt in the Stellar skill tree references this.
+>
+> **MANDATORY pre-investigation re-read for any TTL/storage-expiry concern**. Persistent/instance entries do NOT return `#[default]` on expiry — they archive with the original value preserved. The K2 audit lost ~30 minutes to L-09 by assuming otherwise. V12 has at least 5 Invalid-marked findings explaining this exact misconception (#44792, #44793, #44432, #44849, #44858) — run `scripts/grep_v12.sh --invalid-only | grep -iE "expir|archiv|persistent"` to surface them before investigating.
 
 ---
 

@@ -1,5 +1,32 @@
 # DewaxGuard Changelog
 
+## [1.10.0] - 2026-05-06
+
+**Origin**: K2 Lending Protocol audit continuation (Code4rena Stellar Soroban). During an exploratory deep-dive round, two false-positive findings were investigated, PoC'd, and only THEN discovered to be V12 duplicates (DD-5 "broken `update_atoken` caller forwarding" → V12 #44797; L-09 "TTL-expiry default-on-read" → V12 #44792 with explicit `### Invalid Reason` documenting Soroban v23 archive-restore semantics). Combined wasted time: ~1.5 hours. Triggered the codification of a programmatic dedup workflow specifically for V12-style structured AI-auditor outputs (which differ in shape from M-13's Kuprum-style human-curated catalogs).
+
+### Added
+
+- **`methodology/M25-v12-style-ai-auditor-dedup.md`** — V12-style AI-auditor finding-index pre-grep methodology. When the contest sponsor publishes a V12-style structured AI-auditor output (Zellic V12, similar tools) as the official "known issues" index: at audit start, ingest the platform-knowledge corpus (Invalid-marked entries explain why something LOOKS like a bug but isn't); before every Medium+ PoC, dedup against V12 keywords. Distinct from M-13 (M-13 = unstructured Kuprum-style human-curated catalogs; M-25 = structured AI-auditor outputs with consistent Targets / Severity / Validity / Description / Root Cause / Impact / PoC / Invalid Reason fields). The companion script `scripts/grep_v12.sh` automates Phase 1 step 2.
+
+- **`scripts/grep_v12.sh`** — companion helper for M-25. Four modes: `--count` (per-file finding count, code-fence-aware), keyword OR-mode (default), `--strict` AND-mode (all keywords must match in same finding), `--invalid-only` (surface every entry with explicit Invalid Reason — the platform-knowledge corpus). Validates keyword matches against finding title + body, skips fenced code blocks to avoid false-positive matches on PoC test code. Tested on K2 V12 corpus (3 files, 109 findings, 125k lines) — runs in <1s for typical queries. Exit code 0 on match, 1 on no-match, 2 on bad args.
+
+### Changed
+
+- **`platform-quirks/stellar.md`** — Added top-of-file callout reminding to re-read storage-archival semantics (#1 quirk) before any TTL/expiry hypothesis. Cites the 5 V12 Invalid-marked entries that document the same misconception (#44792, #44793, #44432, #44849, #44858) and provides the one-line grep recipe to surface them. The callout exists because dewaxguard already had this lesson documented but the orchestrator missed reading it before investigating L-09.
+
+- **`methodology/INDEX.md`** — Registered M-25. Added "before submission" workflow step (run M-25 V12 dedup grep if contest cited V12/Zellic) and "audit start when V12 present" step (run `scripts/grep_v12.sh --invalid-only` to ingest platform-knowledge corpus before any breadth/depth work).
+
+- **`SKILL.md`** — Preflight Step 1 now includes `5a. *V12*-output.md / *zellic*.md detection` with mandatory action when present. Self-check before declaring preflight complete now includes V12-output check.
+
+### Validation Summary
+
+- **DD-5 dedup test**: `grep_v12.sh "Wrong actor forwarding"` → returns V12 #44797 in <1s. Would have killed DD-5 candidate before any PoC effort.
+- **L-09 dedup test**: `grep_v12.sh --invalid-only | grep -iE "expir|archiv"` → returns 5 entries (#44792, #44793, #44432, #44849, #44858) all citing Soroban v23 archive-restore semantics. Would have killed L-09 candidate before any QA-Bundle write-up.
+- **Per-K2-audit savings**: ~1.5h wasted investigation + ~0.5h documentation revert = ~2h saved per audit when V12-style index ships.
+- **Permanent platform-knowledge corpus**: 66 Invalid-marked entries available as pre-audit reading material on Soroban quirks (storage archival, public-entry-point reachability, admin-trust patterns, oracle dependency boundaries).
+
+---
+
 ## [1.9.0] - 2026-05-05
 
 **Origin**: K2 Lending Protocol audit (Code4rena Stellar Soroban, 2026-04-17 → 2026-05-27, 8 passes / 108 hypotheses). 14 of 14 QA-Bundle entries followed the same consistency-class pattern → highest-yield methodology for Aave V3 forks. Manual-orchestrator fallback in Pass 7 produced 3 false negatives → codified mandatory agent-failure-recovery protocol. Project-local realism filter reclassified ~40% of candidate findings → promoted to first-class rule.
