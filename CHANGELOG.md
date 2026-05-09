@@ -1,5 +1,31 @@
 # DewaxGuard Changelog
 
+## [1.11.0] - 2026-05-09
+
+**Origin**: User feedback that DewaxGuard reports and PoCs were hard to read for non-auditor stakeholders (project leads, junior devs, bounty triagers). Findings used auditor jargon (`reentrancy`, `TOCTOU`, `monotonicity`, `composability`) that forced the reader to translate before deciding whether to merge a fix. PoC files used opaque comments (`// Impersonate caller`, `// Set storage slot`) that did not explain the attack story. The fix is a single style rule, referenced from every place a finding or PoC is written.
+
+### Added
+
+- **`rules/plain-english-style.md`** — new style rule defining the target reader (smart-contract-savvy, not auditor-fluent), the five sentence rules (one idea per sentence ≤ 25 words, subject-before-verb, name the actor, show harm in user terms, no Latin/no nested parentheticals), a banned-jargon table with plain-language replacements (≈ 30 entries — reentrancy, invariant, monotonic, fungible, atomicity, TOCTOU, MEV, slippage, etc.), the four-sentence Description shape (what is wrong → why it matters → who triggers it → what the user sees), the three-part Recommendation shape (fix sentence → diff → result sentence), the cheatcode-comment dictionary for Foundry/Anchor/Move, and a side-by-side bad-vs-good example. Hard rule: validator deducts 5 points per violation; failed findings get one rewrite pass before submission.
+
+### Changed
+
+- **`rules/report-template.md`** — added a top-of-file plain-English requirement, replaced the bare finding-format block with a worked H-01 example using the four-sentence shape and a real diff, rewrote the Platform Impact bullets in plain English (Sherlock/C4/Cantina/Immunefi), added a 5-item self-check the writer runs before saving the report.
+- **`rules/finding-output-format.md`** — added the plain-English requirement as the 5th validator hard rule, rewrote the example finding (Solana `set_admin` missing-auth) using the four-sentence Description shape and a plain-English Recommendation diff.
+- **`rules/fork-poc-execution.md`** — replaced jargon comments on the Foundry cheatcode block (`Impersonate caller` → `next call comes from the attacker`, `Set storage slot` → `force the contract's storage to a state we want to test`, etc.), added a "Use real names, round numbers, plain comments" section between Concrete Assertions and Variant Testing, rewrote the Output Format example to include an "Attack story" paragraph in plain English, added a 5-item self-check before saving the PoC.
+- **`references/report-formatting.md`** — added the plain-English requirement at the top, rewrote the per-finding Description template ("vulnerable code pattern and why it is exploitable" → "name the function, say what is missing or wrong, say who can abuse it, and say what the user loses"), added a 4-item self-check for each Description.
+- **`SKILL.md`** Phase 5c — added a one-paragraph plain-English requirement directing every PoC-writer agent to load `rules/plain-english-style.md`.
+- **`SKILL.md`** Phase 6 — added the plain-English requirement to the report writers' mandatory input list (alongside `report-template.md` and `report-formatting.md`); each finding line in "For each finding" now states its plain-English shape (four-sentence Description, dollar/percent Impact, fix-sentence + diff + result-sentence Recommendation).
+
+### Validation Summary
+
+- **Banned-jargon coverage**: ≈ 30 most common auditor terms have plain replacements; covers reentrancy, invariants, MEV, slippage, oracle staleness, TOCTOU, griefing, monotonicity, fungibility, race conditions, signature replay, idempotency.
+- **Description shape coverage**: every report and finding format file now states the four-sentence shape explicitly. Validator deducts 5 points per missing sentence.
+- **PoC comment coverage**: Foundry cheatcode dictionary covers `vm.prank`, `vm.startPrank`, `vm.deal`, `vm.store`, `vm.warp`, `vm.roll`, `vm.expectRevert`, `assertEq`, `assertGt`. Solana/Anchor/Move comment dictionary covers `Context<T>` setup, `signer`, `program.methods.*.rpc()`, `assert_eq!`, expected-error patterns, `tx_context::sender`, Move `transfer::public_transfer`.
+- **Cross-reference**: 5 files now reference `rules/plain-english-style.md` (report-template, finding-output-format, fork-poc-execution, references/report-formatting, SKILL.md Phase 5c+6). Single source of truth, no duplication.
+
+---
+
 ## [1.10.0] - 2026-05-06
 
 **Origin**: K2 Lending Protocol audit continuation (Code4rena Stellar Soroban). During an exploratory deep-dive round, two false-positive findings were investigated, PoC'd, and only THEN discovered to be V12 duplicates (DD-5 "broken `update_atoken` caller forwarding" → V12 #44797; L-09 "TTL-expiry default-on-read" → V12 #44792 with explicit `### Invalid Reason` documenting Soroban v23 archive-restore semantics). Combined wasted time: ~1.5 hours. Triggered the codification of a programmatic dedup workflow specifically for V12-style structured AI-auditor outputs (which differ in shape from M-13's Kuprum-style human-curated catalogs).

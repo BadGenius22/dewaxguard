@@ -3,6 +3,7 @@
 > **Purpose**: Mechanically prove findings on real deployed contracts. [FORK-PASS] is the strongest evidence.
 > **Trigger**: All findings with severity >= Medium
 > **Fallback**: If fork unavailable, use [POC-PASS] (unit test) or [CODE-TRACE] (manual)
+> **Plain-English requirement (HARD)**: every comment inside a PoC file MUST follow `rules/plain-english-style.md`. Use the cheatcode-comment dictionary in that file. The PoC code uses real cheatcode names (e.g. `vm.prank`), but the comment next to the cheatcode must be plain English.
 
 ---
 
@@ -31,14 +32,14 @@ forge test --match-test testExploit --fork-url {RPC_URL} -vvv
 | Polygon | `https://polygon-rpc.com` |
 | BSC | `https://bsc-dataseed1.binance.org` |
 
-**Foundry Cheatcodes for PoC**:
+**Foundry Cheatcodes for PoC** — comments use plain English per `rules/plain-english-style.md`:
 ```solidity
-vm.prank(attacker)           // Impersonate caller
-vm.deal(addr, amount)        // Set ETH balance
-vm.store(addr, slot, value)  // Set storage slot (simulate state)
-vm.warp(timestamp)           // Set block.timestamp
-vm.roll(blockNumber)         // Set block.number
-vm.startPrank(addr)          // Persistent impersonation
+vm.prank(attacker)           // next call comes from the attacker
+vm.deal(addr, amount)        // give addr this much ETH so it can pay gas
+vm.store(addr, slot, value)  // force the contract's storage to a state we want to test
+vm.warp(timestamp)           // jump the block time forward to this timestamp
+vm.roll(blockNumber)         // jump to this block number
+vm.startPrank(addr)          // every call below comes from addr until vm.stopPrank
 ```
 
 ### Solana
@@ -89,18 +90,36 @@ sui move test --filter test_exploit
 - If precondition requires admin action, note this in the finding
 
 ### 3. Concrete Assertions
+Every PoC must prove a number changed in the attacker's favour. Use plain comments that explain the attack story.
+
 ```solidity
-// BAD: just shows the function can be called
+// BAD: just shows the function can be called — proves nothing about harm
 attacker.exploit();
 
-// GOOD: proves the financial impact
-uint256 balBefore = token.balanceOf(attacker);
-attacker.exploit();
-uint256 balAfter = token.balanceOf(attacker);
-assertGt(balAfter, balBefore, "Attacker gained tokens");
+// GOOD: proves the attacker walks away with more tokens than they started with
+uint256 balBefore = token.balanceOf(attacker);  // attacker's tokens before the attack
+attacker.exploit();                             // run the attack
+uint256 balAfter  = token.balanceOf(attacker);  // attacker's tokens after the attack
+assertGt(balAfter, balBefore, "Attacker should have gained tokens but did not");
 ```
 
-### 4. Variant Testing
+### 4. Use real names, round numbers, plain comments
+```solidity
+// Use names like attacker / victim / owner — never addr1, addr2.
+address attacker = makeAddr("attacker");
+address victim   = makeAddr("victim");
+
+// Round numbers unless the exact number is the bug.
+uint256 deposit = 1_000_000e6;  // 1M USDC
+
+vm.deal(attacker, 1 ether);     // give attacker 1 ETH for gas
+vm.startPrank(victim);          // every call below is signed by the victim
+token.approve(address(vault), deposit);
+vault.deposit(deposit);         // victim deposits 1M USDC
+vm.stopPrank();
+```
+
+### 5. Variant Testing
 Before marking `[FORK-FAIL]` → FALSE_POSITIVE:
 - Try relaxing the timing (same-block → multi-block)
 - Try different amounts (specific → range)
@@ -132,14 +151,20 @@ After 2+ variant failures → `[FORK-FAIL]` is justified.
 **Fork RPC**: {RPC_URL}
 **Block**: {block number at fork time}
 
+**Attack story (one paragraph, plain English)**:
+The attacker calls `withdraw` once. The function sends ETH before zeroing the
+balance, so the attacker's contract calls `withdraw` again from inside the
+ETH transfer. The balance is still its old value, so the second call also
+pays out. The attacker repeats this until the vault is empty.
+
 **Test Command**:
 ```bash
 {exact command to reproduce}
 ```
 
-**Test Code**:
+**Test Code** (comments follow `rules/plain-english-style.md`):
 ```{language}
-{minimal PoC code}
+{minimal PoC code with plain comments}
 ```
 
 **Output**:
@@ -148,5 +173,15 @@ After 2+ variant failures → `[FORK-FAIL]` is justified.
 ```
 
 **Evidence Tag**: [FORK-PASS]
-**Financial Impact**: {concrete numbers from the test}
+**Financial Impact** (in dollars or percent): e.g. "Attacker drained 800 ETH (~$2.4M at fork block) — 100% of the vault."
 ```
+
+---
+
+## Self-check before saving the PoC
+
+- [ ] Every comment explains *why*, not *what*.
+- [ ] No comment uses banned jargon from `rules/plain-english-style.md` without a one-sentence definition.
+- [ ] Variable names are role names (`attacker`, `victim`, `owner`) — no `addr1`/`addr2`.
+- [ ] Numbers are round unless an exact number is the bug.
+- [ ] The test asserts a number changed in the attacker's favour, not just that a function ran.

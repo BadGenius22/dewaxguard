@@ -226,6 +226,8 @@ See: `agents/nemesis/feynman.md` and `agents/nemesis/state-inconsistency.md`
 
 ## PHASE 5c: MAINNET FORK PoC (Critical/High/Medium)
 
+> **Plain-English requirement**: every PoC file written in this phase MUST follow `rules/plain-english-style.md`. The orchestrator passes that file to every PoC-writer agent's input list. Variable names use roles (`attacker`, `victim`, `owner`), comments explain the attack story in plain English (use the cheatcode-comment dictionary), numbers are round unless the exact number is the bug.
+
 For each finding with severity >= Medium:
 
 ### EVM (Foundry):
@@ -358,11 +360,14 @@ Output: `AUDIT_REPORT.md` in project root.
 
 Format: Platform-specific (C4 submission format, Sherlock format, etc.)
 
+> **Plain-English requirement (HARD)**: every report writer agent (tier writers, assembler, Pashov-style formatter) MUST receive `rules/plain-english-style.md` in its input list, alongside `rules/report-template.md` and `references/report-formatting.md`. The validator deducts 5 points per finding whose Description does not follow the four-sentence shape (what is wrong → why it matters → who triggers it → what the user sees) or whose surviving banned jargon is not defined on first use. The post-write self-check at the bottom of `rules/report-template.md` is mandatory before the report is saved.
+
 For each finding:
 - Clean sequential IDs (C-01, H-01, M-01, L-01)
-- Full description with code snippets
-- PoC (fork test preferred)
-- Recommended fix with diff
+- Plain-English Description in the four-sentence shape (what is wrong → why it matters → who triggers it → what the user sees)
+- Impact stated in dollars, percent, or a clear user-action verb
+- PoC (fork test preferred), with comments per the cheatcode-comment dictionary
+- Recommended fix as: one-sentence fix → code diff → one-sentence "what this prevents"
 - Validation score
 
 ---

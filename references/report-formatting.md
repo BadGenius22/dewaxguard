@@ -1,5 +1,7 @@
 # Report Formatting
 
+> **Plain-English requirement (HARD)**: every Description and Fix paragraph in this format MUST follow `rules/plain-english-style.md`. The single Description sentence is the highest-leverage line in the whole report — it is what triage readers see first. Spend the time to make it land for a smart-contract-savvy reader who does not speak auditor jargon.
+
 ## Report Path
 
 Save the report to `assets/findings/{project-name}-pashov-ai-audit-report-{timestamp}.md` where `{project-name}` is the repo root basename and `{timestamp}` is `YYYYMMDD-HHMMSS` at scan time.
@@ -28,7 +30,7 @@ Save the report to `assets/findings/{project-name}-pashov-ai-audit-report-{times
 `ContractName.functionName` · Confidence: 95
 
 **Description**
-<The vulnerable code pattern and why it is exploitable, in 1 short sentence>
+<One short sentence in plain English: name the function, say what is missing or wrong, say who can abuse it, and say what the user loses. Example: "`withdraw` sends ETH before zeroing the balance, so any user with an attacker contract can call it recursively and drain the entire vault.">
 
 **Fix**
 
@@ -43,7 +45,7 @@ Save the report to `assets/findings/{project-name}-pashov-ai-audit-report-{times
 `ContractName.functionName` · Confidence: 82
 
 **Description**
-<The vulnerable code pattern and why it is exploitable, in 1 short sentence>
+<One short sentence in plain English: name the function, say what is missing or wrong, say who can abuse it, and say what the user loses. Example: "`withdraw` sends ETH before zeroing the balance, so any user with an attacker contract can call it recursively and drain the entire vault.">
 
 **Fix**
 
@@ -62,7 +64,7 @@ Save the report to `assets/findings/{project-name}-pashov-ai-audit-report-{times
 `ContractName.functionName` · Confidence: 75
 
 **Description**
-<The vulnerable code pattern and why it is exploitable, in 1 short sentence>
+<One short sentence in plain English: name the function, say what is missing or wrong, say who can abuse it, and say what the user loses. Example: "`withdraw` sends ETH before zeroing the balance, so any user with an attacker contract can call it recursively and drain the entire vault.">
 
 ---
 
@@ -94,4 +96,10 @@ _Vulnerability trails with concrete code smells where the full exploit path coul
 ````
 
 **Rules:** Follow the template above exactly. Sort findings by confidence (highest first). Findings below the threshold get a description but no **Fix** block. Draft findings directly in report format — do not re-generate.
+
+**Plain-English self-check** (apply to each Description before saving):
+- [ ] Names the function and the missing check or wrong logic.
+- [ ] Names the actor (any user, attacker, owner, etc.).
+- [ ] States the user-level harm in money or lost access.
+- [ ] One sentence, ≤ 25 words, no banned jargon from `rules/plain-english-style.md`.
 
