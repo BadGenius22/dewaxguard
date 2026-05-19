@@ -102,10 +102,53 @@ PHASES: list[Phase] = [
         gates=["content_check"],
     ),
     Phase(
+        name="niche",
+        template="42_niche.md",
+        required_outputs=["scratchpad/niche_summary.md"],
+        timeout_seconds=3600,
+        gates=["content_check"],
+    ),
+    Phase(
+        name="depth",
+        template="45_depth.md",
+        required_outputs=["scratchpad/depth_*_findings.md"],  # glob; ≥1 required
+        timeout_seconds=5400,  # 90min — 6 parallel agents
+        gates=["content_check"],
+    ),
+    Phase(
+        name="nemesis",
+        template="46_nemesis.md",
+        required_outputs=["scratchpad/nemesis_summary.md"],
+        timeout_seconds=7200,  # 2hr — up to 6 sequential cross-feed passes
+        gates=["content_check"],
+        mode_min="thorough",
+    ),
+    Phase(
+        name="chain",
+        template="47_chain.md",
+        required_outputs=[
+            "scratchpad/hypotheses.md",
+            "scratchpad/chain_hypotheses.md",
+        ],
+        timeout_seconds=2400,  # 40min — 2 sequential agents
+        gates=["content_check"],
+    ),
+    Phase(
         name="verify",
         template="50_verify.md",
         required_outputs=["scratchpad/verify_*.md"],
         timeout_seconds=3600,
+        gates=["content_check"],
+        mode_min="core",
+    ),
+    Phase(
+        name="validator",
+        template="55_validator.md",
+        required_outputs=[
+            "scratchpad/validation_results.json",
+            "scratchpad/validation_summary.md",
+        ],
+        timeout_seconds=1800,
         gates=["content_check"],
         mode_min="core",
     ),

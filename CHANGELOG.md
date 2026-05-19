@@ -1,5 +1,44 @@
 # DewaxGuard Changelog
 
+## [1.13.1] - 2026-05-19
+
+**Origin**: Continuation of v1.13.0. The MVP driver covered 6 phases (preflight, recon, breadth, inventory, verify, report) — enough to validate the architecture but missing the depth, chain, Nemesis, validator, and niche-agent phases that make dewaxguard's pipeline actually useful. v1.13.1 ports those 5 phases into the driver with self-contained per-phase templates (100-300 lines each).
+
+### Added
+
+- **`prompts/phases/42_niche.md`** — flag-triggered niche agents phase. Reads `template_recommendations.md` (from recon) to discover which niche agents to spawn: EVENT_COMPLETENESS, SIGNATURE_VERIFICATION_AUDIT, SPEC_COMPLIANCE_AUDIT, SEMANTIC_CONSISTENCY_AUDIT. Each niche agent runs in parallel via Task tool with a self-contained inline prompt covering inputs / method / output ID prefix. When no flags fire, the phase exits cleanly with an empty `niche_summary.md` (still meets content gate).
+
+- **`prompts/phases/45_depth.md`** — 6 depth agents (Plamen-style 4 + dewaxguard's 2 NEW: depth-lowlevel + depth-runtime). Routes canonical findings to agents by bug_class root tokens (token/balance → depth-token-flow, auth/role → depth-state-trace, etc.). Each agent reads its definition (`agents/depth-*.md` or `methodology/depth-*.md`), processes ≤ 5 findings (Rule AD-3 from confidence scoring), and emits `depth_<short>_findings.md` with the agent-specific depth evidence tags ([DTF-N], [DST-N], [DEC-N], [DEX-N], [DLL-N], [DRT-N]) plus a Chain Summary table for Phase 4c. Iteration 1 only; iterations 2-3 (adaptive depth loop) are v1.13.2+ work.
+
+- **`prompts/phases/46_nemesis.md`** — iterative Feynman ↔ State-Inconsistency cross-feed (mode_min=thorough). Pass 1 Feynman → Pass 2 State → Pass 3 Feynman → ... up to 6 passes with convergence-based exit (0 new findings → exit). Each pass spawned as separate Task agent with the pass-N number injected; the prior pass's output is the next pass's enrichment input. Final `nemesis_summary.md` aggregates novel findings for chain analysis.
+
+- **`prompts/phases/47_chain.md`** — split 2-agent chain analysis from `rules/chain-analysis-prompt.md`. Pre-step: extract compact Chain Summary digests from depth output to avoid 5000+ line input. Agent 1: enabler enumeration (5-actor table per dangerous state, Rule R12) + grouping (max 5 findings per hypothesis, anti-absorption test). Agent 2: chain matching (PARTIAL/REFUTED → CONFIRMED postcondition lookup) + composition coverage map (cross-class pairs HIGH PRIORITY) + optional RAG validation. Iterative pass (max 1 additional iteration) when unexplored Medium+ cross-class pairs remain.
+
+- **`prompts/phases/55_validator.md`** — Phase 5d bug validator. 7 gates per finding: refutation, docs-intent (HARD), reachability, trigger, severity decision tree a/b/c, realism filter, auth-critical-files when applicable. Emits per-platform `predicted_verdict` + 0-100 score for Code4rena / Sherlock / Cantina / Immunefi / HackenProof. Score deductions: -30 for failed gates 1/1a/2/3, -20 for realism filter rejection, -15 for severity inflation > 1 tier vs decision tree, -5 per plain-English violation, -10 for SKELETON_ONLY auth_check, +10 for RAG match. Writes `validation_results.json` consumed by the report phase.
+
+### Changed
+
+- **`scripts/dewaxguard_driver.py`** — phase registry expanded from 6 to 11 phases. New entries: `niche` (after inventory, always runs but can no-op), `depth` (after niche, 90min timeout for 6 parallel agents), `nemesis` (between depth and chain, mode_min=thorough, 2hr timeout), `chain` (after nemesis when present, else after depth, 40min for 2 sequential agents), `validator` (between verify and report, mode_min=core, 30min). Mode filtering verified across light/core/thorough.
+
+### Validation
+
+- **Phase registry per mode**:
+  - Light (8 phases): preflight → recon → breadth → inventory → niche → depth → chain → report
+  - Core (10): + verify + validator
+  - Thorough (11): + nemesis
+- All transitions still pass dry-run + skip-gates traversal. Checkpoints still resume correctly. Phase filter still honored.
+
+### Deferred to v1.13.2+
+
+- Coverage gate end-to-end validation against a real claude -p stream-json transcript.
+- Codex backend validation.
+- Expand early/late phase templates (00_preflight.md, 10_recon.md, 30_breadth.md, 50_verify.md, 60_report.md) from MVP delegations to full inline methodology — currently they reference SKILL.md sections, which means the fresh subprocess has to chase cross-references. v1.13.2 will inline them like the new 5 phases.
+- Adaptive depth loop (iterations 2-3) per phase4-confidence-scoring.md.
+- 4-axis confidence scoring after iteration 1.
+- RAG validation sweep as a dedicated phase (currently embedded inline in chain phase).
+
+---
+
 ## [1.13.0] - 2026-05-19
 
 **Origin**: Continuation of the Plamen v2.0.0 port started in v1.12. Plamen v2 deprecated its LLM orchestrator with a deterministic Python driver that spawns `claude -p` subprocesses per phase — each phase runs in a fresh context window, gates check the output before advancing, and per-phase checkpoints make the pipeline crash-resumable. v1.13 ports this driver architecture to dewaxguard as an opt-in `--driver` invocation. The legacy prompt-only flow (`/dewaxguard`) remains the default until at least v1.15, so existing workflows are unaffected.
