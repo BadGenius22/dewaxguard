@@ -1,0 +1,280 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dewaxguard.local/schemas/findings_table.json",
+  "title": "DewaxGuard Findings Table v1",
+  "description": "Inter-phase contract for findings. Superset of the FINDING | pipe-delimited prose format emitted by hacking-agents. Phases that need machine-readable findings (dedup, severity-router, report) parse prose into this schema. Phases that emit findings may emit prose alone and let the parser fill the table.",
+  "type": "object",
+  "required": ["version", "audit_id", "findings"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Schema version. Bump on breaking changes."
+    },
+    "audit_id": {
+      "type": "string",
+      "description": "Stable identifier for this audit (e.g. project + commit hash + date)."
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "phase": {
+      "type": "string",
+      "enum": ["breadth", "inventory", "depth", "chain", "verify", "report"],
+      "description": "Which phase produced this table snapshot."
+    },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Finding" }
+    }
+  },
+  "$defs": {
+    "Finding": {
+      "type": "object",
+      "required": ["id", "kind", "agent", "contract", "function", "bug_class", "group_key", "description"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Phase-local ID (e.g. AC-1, EC-3, RS1-2). Stable within a phase, may be rewritten downstream by dedup/severity-router."
+        },
+        "canonical_id": {
+          "type": ["string", "null"],
+          "description": "Set by dedup. The ID of the canonical finding this row was merged into. NULL if this row IS the canonical."
+        },
+        "report_id": {
+          "type": ["string", "null"],
+          "pattern": "^[CHMLI]-[0-9]{2}$",
+          "description": "Set by severity-router/report-index. Final client-facing ID (C-01, H-03, M-12, L-04, I-08)."
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["FINDING", "LEAD"],
+          "description": "FINDING = exploitable, has proof + verified. LEAD = partial, needs further investigation."
+        },
+        "agent": {
+          "type": "string",
+          "description": "Source agent (access-control, economic-security, execution-trace, periphery, math-precision, invariant, vector-scan, first-principles, feynman, state-inconsistency, depth-lowlevel, depth-runtime, rescan, percontract, niche-*)."
+        },
+        "contract": {
+          "type": "string",
+          "description": "Contract / module / file logical name (e.g. \"LendingPool\", \"raydium_amm\", \"pool::manager\")."
+        },
+        "function": {
+          "type": "string",
+          "description": "Function / instruction / entry point name."
+        },
+        "bug_class": {
+          "type": "string",
+          "description": "Kebab-case vulnerability class tag (e.g. missing-auth, reentrancy, oracle-staleness, sync-gap, off-by-one)."
+        },
+        "group_key": {
+          "type": "string",
+          "description": "ContractName | functionName | bug_class. Primary dedup key — same group_key = same root cause until proven otherwise."
+        },
+        "severity": {
+          "type": ["string", "null"],
+          "enum": ["Critical", "High", "Medium", "Low", "Informational", null],
+          "description": "Final severity. NULL until severity-router has run."
+        },
+        "severity_pre_modifier": {
+          "type": ["string", "null"],
+          "enum": ["Critical", "High", "Medium", "Low", "Informational", null],
+          "description": "Severity from raw Impact×Likelihood matrix before downgrade modifiers (on-chain-only, view-only, trusted-actor). NULL if no modifier applied."
+        },
+        "impact_level": {
+          "type": ["string", "null"],
+          "enum": ["High", "Medium", "Low", "Informational", null],
+          "description": "Impact axis input for severity matrix."
+        },
+        "likelihood": {
+          "type": ["string", "null"],
+          "enum": ["High", "Medium", "Low", null],
+          "description": "Likelihood axis input for severity matrix."
+        },
+        "realism_filter": {
+          "type": ["string", "null"],
+          "enum": [
+            "permissionless",
+            "semi-trusted-role",
+            "admin-trust",
+            "design-choice",
+            "unreachable-precondition",
+            null
+          ],
+          "description": "Per realism-filter.md. Sets platform acceptability."
+        },
+        "location": {
+          "type": "object",
+          "required": ["file"],
+          "properties": {
+            "file": { "type": "string", "description": "Path relative to PROJECT_ROOT." },
+            "line_start": { "type": ["integer", "null"], "minimum": 1 },
+            "line_end": { "type": ["integer", "null"], "minimum": 1 },
+            "extra_locations": {
+              "type": "array",
+              "description": "Additional locations for consolidated findings (same root cause, multiple sites).",
+              "items": {
+                "type": "object",
+                "required": ["file"],
+                "properties": {
+                  "file": { "type": "string" },
+                  "line_start": { "type": ["integer", "null"], "minimum": 1 },
+                  "line_end": { "type": ["integer", "null"], "minimum": 1 },
+                  "note": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "title": {
+          "type": "string",
+          "description": "Short title (≤80 chars). Derived from description if not set explicitly."
+        },
+        "description": {
+          "type": "string",
+          "description": "Plain-English description (per rules/plain-english-style.md). Four-sentence shape: what is wrong → why it matters → who triggers it → what the user sees."
+        },
+        "path": {
+          "type": ["string", "null"],
+          "description": "Attack path: caller → function → state change → impact."
+        },
+        "proof": {
+          "type": ["string", "null"],
+          "description": "Concrete values, trace, or state sequence demonstrating the bug. Required for kind=FINDING."
+        },
+        "verified": {
+          "type": ["string", "null"],
+          "description": "Pasted ±2 lines of source around cited line. Required for kind=FINDING."
+        },
+        "fix": {
+          "type": ["string", "null"],
+          "description": "One-sentence fix suggestion."
+        },
+        "evidence_tags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "POC-PASS",
+              "POC-FAIL",
+              "CODE-TRACE",
+              "MEDUSA-PASS",
+              "PROD-ONCHAIN",
+              "PROD-SOURCE",
+              "PROD-FORK",
+              "CODE",
+              "DOC",
+              "MOCK",
+              "EXT-UNV",
+              "BOUNDARY",
+              "VARIATION",
+              "TRACE",
+              "DIFF-PASS",
+              "CONFORMANCE-PASS",
+              "NON-DET-PASS",
+              "FUZZ-PASS"
+            ]
+          },
+          "description": "Evidence tags backing the finding. POC-PASS is the only tag that supports CONFIRMED ground truth. DIFF/CONFORMANCE/NON-DET/FUZZ added for L1 mode (v1.14)."
+        },
+        "verdict": {
+          "type": ["string", "null"],
+          "enum": ["CONFIRMED", "PARTIAL", "REFUTED", "CONTESTED", "FALSE_POSITIVE", null],
+          "description": "Set by verifier in Phase 5. NULL pre-verification."
+        },
+        "verifier_notes": {
+          "type": ["string", "null"],
+          "description": "Verifier output summary (PoC compile attempts, fuzz runs, fork-test addresses)."
+        },
+        "confidence": {
+          "type": "object",
+          "description": "4-axis confidence from phase4-confidence-scoring.md. NULL fields until scoring runs.",
+          "properties": {
+            "evidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+            "consensus": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+            "analysis_quality": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+            "rag_match": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+            "composite": { "type": ["number", "null"], "minimum": 0, "maximum": 1 }
+          }
+        },
+        "rules_applied": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^R[0-9]+:[a-zA-Z✓✗?()/, -]+$" },
+          "description": "Per finding-output-format.md (e.g. R4:✓, R6:✗(no role)). Strings preserve the ✓/✗ markers."
+        },
+        "preconditions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["description"],
+            "properties": {
+              "description": { "type": "string" },
+              "type": {
+                "type": ["string", "null"],
+                "enum": ["STATE", "ACCESS", "TIMING", "EXTERNAL", "BALANCE", null]
+              },
+              "satisfied_by_finding": {
+                "type": ["string", "null"],
+                "description": "Canonical ID of another finding whose postcondition creates this precondition. Used by chain analysis."
+              }
+            }
+          }
+        },
+        "postconditions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "description": { "type": "string" },
+              "type": {
+                "type": ["string", "null"],
+                "enum": ["STATE", "ACCESS", "TIMING", "EXTERNAL", "BALANCE", null]
+              },
+              "beneficiary": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "chain_id": {
+          "type": ["string", "null"],
+          "description": "If this finding is part of a chain, the chain hypothesis ID (CH-N)."
+        },
+        "platform_status": {
+          "type": "object",
+          "description": "Per-platform pre-submission status from bug-validator.",
+          "properties": {
+            "code4rena": { "$ref": "#/$defs/PlatformVerdict" },
+            "sherlock": { "$ref": "#/$defs/PlatformVerdict" },
+            "cantina": { "$ref": "#/$defs/PlatformVerdict" },
+            "immunefi": { "$ref": "#/$defs/PlatformVerdict" },
+            "hackenproof": { "$ref": "#/$defs/PlatformVerdict" }
+          }
+        },
+        "agent_source_paths": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Scratchpad paths where this finding originated (e.g. scratchpad/analysis_access_control.md)."
+        },
+        "tool_budget_exhausted": {
+          "type": ["boolean", "null"],
+          "description": "True if the agent ran out of Read/Grep budget while investigating this row."
+        },
+        "duplicate_of_v12": {
+          "type": ["string", "null"],
+          "description": "If M-25 V12 grep matched, the V12 finding ID. Triggers DROP."
+        }
+      }
+    },
+    "PlatformVerdict": {
+      "type": "object",
+      "properties": {
+        "predicted_verdict": {
+          "type": "string",
+          "enum": ["ACCEPT", "REJECT", "DUPLICATE", "OUT_OF_SCOPE", "QA"]
+        },
+        "score": { "type": "number", "minimum": 0, "maximum": 100 },
+        "blockers": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

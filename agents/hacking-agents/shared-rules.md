@@ -49,6 +49,15 @@ verified: |
 description: one sentence
 fix: one-sentence suggestion
 
+# Optional schema-aligned fields (parsed by scripts/parse_findings.py into the
+# v1.0 findings_table contract; omit when unknown — downstream phases fill in)
+severity: Critical|High|Medium|Low|Informational   # only if you can reasonably classify; otherwise leave for inventory
+impact: High|Medium|Low|Informational              # axis input for severity matrix
+likelihood: High|Medium|Low                        # axis input for severity matrix
+realism_filter: permissionless|semi-trusted-role|admin-trust|design-choice|unreachable-precondition
+location: <relative/path/File.ext>:L<start>-L<end> # explicit machine-readable location
+evidence: [CODE, BOUNDARY, TRACE, POC-PASS, ...]   # comma-separated tag list
+
 LEAD | contract: Name | function: func | bug_class: kebab-tag | group_key: Contract | function | bug-class
 code_smells: what you found
 description: one sentence explaining trail and what remains unverified
@@ -58,6 +67,8 @@ budget: reads=N/MAX greps=N/MAX — <one-sentence note on remaining capacity>
 ```
 
 The `group_key` enables deduplication: `ContractName | functionName | bug_class`. Agents may add custom fields.
+
+**Mechanical dedup**: `scripts/dedup.py` (v1.12+) parses every `FINDING | ... | group_key: ...` block from agent output into the v1.0 findings_table schema, then merges duplicates via three stages: (A) exact `group_key`, (A2) same `contract`+`function` with bug_class/title overlap, (B) same file + line proximity, (C) cross-file bug_class token overlap. Ambiguous pairs (score 0.70–0.85) are surfaced for LLM tie-break only — most clusters resolve mechanically. Schema-aligned optional fields above improve dedup precision and feed `scripts/severity_router.py` directly.
 
 ## Inconsistency check (MANDATORY for every FINDING)
 

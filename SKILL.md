@@ -190,6 +190,53 @@ Each agent uses `agents/hacking-agents/shared-rules.md` for output format.
 
 ---
 
+## PHASE 4a: INVENTORY + MECHANICAL DEDUP (v1.12+)
+
+After all 8 breadth agents return, the orchestrator runs the v1.12 mechanical pipeline. This replaces ad-hoc orchestrator-led dedup (which is unreliable under context saturation) with three deterministic Python scripts:
+
+```bash
+# 1. Parse every breadth agent's prose output into the v1.0 findings_table schema.
+#    Both formats are supported: `FINDING | ... | group_key:` pipe blocks from
+#    hacking-agents AND `## Finding [X-NN]:` markdown blocks (for re-runs).
+python3 scripts/parse_findings.py \
+    $SCRATCHPAD/analysis_*.md \
+    --audit-id "$AUDIT_ID" --phase breadth \
+    -o $SCRATCHPAD/findings_breadth.json
+
+# 2. Mechanical dedup — three-stage clustering (exact group_key → same
+#    contract+function → file+line proximity → cross-file bug_class tokens).
+#    Ambiguous pairs (score 0.70-0.85) are surfaced for LLM tie-break; the
+#    vast majority of clusters resolve mechanically.
+python3 scripts/dedup.py \
+    $SCRATCHPAD/findings_breadth.json \
+    -o $SCRATCHPAD/findings_merged.json \
+    --clusters-out $SCRATCHPAD/dedup_clusters.json \
+    --ambiguous-out $SCRATCHPAD/dedup_ambiguous.json
+
+# 3. Severity routing — apply the Impact×Likelihood matrix from
+#    rules/report-template.md plus realism-filter downgrades. Findings
+#    without explicit severity get one assigned from impact+likelihood axes.
+python3 scripts/severity_router.py \
+    $SCRATCHPAD/findings_merged.json \
+    -o $SCRATCHPAD/findings_routed.json \
+    --diff-out $SCRATCHPAD/severity_changes.json
+```
+
+**LLM tie-break for ambiguous clusters** (optional, only when `dedup_ambiguous.json` is non-empty):
+
+Spawn a small `haiku` agent with the ambiguous pair list and ask it to mark each pair MERGE/SEPARATE. Update `findings_merged.json` accordingly. This is the only LLM step in Phase 4a — the rest is deterministic. Typical audit produces 0-5 ambiguous pairs.
+
+**Why mechanical**: An LLM dedup agent on 30+ findings produces non-deterministic groupings — same input → different clusters each run. Python clustering is reproducible, auditable, and 100× cheaper. The orchestrator can still spawn an LLM agent to handle the genuinely ambiguous cases.
+
+**Methodology**: see `methodology/M26-mechanical-inventory-dedup.md` for the full v1.12 workflow, including when to fall back to LLM dedup if scripts are unavailable.
+
+**Outputs consumed downstream**:
+- `findings_routed.json` → Phase 4b depth agents (one row per canonical finding becomes a depth input)
+- `dedup_clusters.json` → audit trail for the report
+- `severity_changes.json` → audit trail for severity adjustments
+
+---
+
 ## PHASE 4b: DEPTH — 6 AGENTS
 
 Standard 4 (from Plamen methodology):

@@ -1,5 +1,44 @@
 # DewaxGuard Changelog
 
+## [1.12.0] - 2026-05-19
+
+**Origin**: Plamen v2.0.0 (2026-05-13) deprecated its LLM orchestrator after observing context-saturation drift on multi-agent audits — late-pipeline phases silently skipped mandatory dedup work, and the same finding shipped 3-5x in the report under different titles. dewaxguard v1.12 ports the mechanical-Python pattern at the inventory layer: three deterministic scripts replace the LLM-led inventory phase. The phase driver, content/coverage gates, and L1 mode follow in v1.13/v1.14.
+
+### Added
+
+- **`scripts/findings_table.schema.json`** — v1.0 JSON Schema for findings tables passed between phases. Superset of the existing `FINDING | ... | group_key:` pipe-delimited prose. Adds optional fields for `severity`, `impact_level`, `likelihood`, `realism_filter`, `location` (file+line range), `evidence_tags`, `verdict`, `preconditions`, `postconditions`, `chain_id`, `platform_status`, and per-finding agent-source paths. Includes L1-mode evidence tags (`DIFF-PASS`, `CONFORMANCE-PASS`, `NON-DET-PASS`, `FUZZ-PASS`) ahead of v1.14.
+
+- **`scripts/parse_findings.py`** — parses agent scratchpad files into the v1.0 schema. Handles two formats: (a) the `FINDING | contract: X | function: Y | bug_class: Z | group_key: X | Y | Z` pipe blocks from `agents/hacking-agents/`, (b) the `## Finding [H-01]: Title [VERIFIED]` + `**Severity**:`/`**Location**:` markdown blocks from `rules/finding-output-format.md`. Both formats can coexist in the same file. Optional fields (`severity:`, `impact:`, `likelihood:`, `realism_filter:`, `location:`, `evidence:`) are parsed when present.
+
+- **`scripts/dedup.py`** — mechanical three-stage clustering with Jaro-Winkler character similarity and Jaccard token overlap, all implemented in pure Python (no external deps). Stage A: exact `group_key` match (score 1.0, always merge). Stage A2: same `contract`+`function` with bug_class jaccard ≥ 0.3 OR title similarity ≥ 0.55 (merge), or partial signals (ambiguous). Stage B: same file + line proximity (±5) + bug_class overlap. Stage C: cross-file bug_class token-bucket pre-filter + full pair scoring. Each pair evaluated at most once. Ambiguous pairs (score 0.70-0.85) surface in `dedup_ambiguous.json` for optional LLM tie-break — the vast majority of clusters resolve mechanically. Canonical picker prefers highest severity → FINDING over LEAD → most evidence tags. Cluster absorbs `extra_locations`, agent paths, evidence tags, and the most-restrictive realism filter from all members. End-to-end run < 100ms on 50-finding input.
+
+- **`scripts/severity_router.py`** — mechanical Impact×Likelihood matrix application from `rules/report-template.md`. Implements: (a) base matrix lookup when `severity` is unset but `impact_level`/`likelihood` are; (b) realism-filter downgrades (`admin-trust` -1 tier, `design-choice`/`unreachable-precondition` cap at Informational); (c) scope modifiers (`VIEW_ONLY` cap at Medium, `ON_CHAIN_ONLY` without off-chain impact -1 tier); (d) `--proven-only` flag that caps any finding without a proof tag (`POC-PASS`, `MEDUSA-PASS`, `PROD-*`, `FUZZ-PASS`) at Low. Preserves `severity_pre_modifier` for the report to show original tier + adjustment reason. Propagates canonical severity to duplicate rows automatically.
+
+- **`methodology/M26-mechanical-inventory-dedup.md`** — new methodology entry documenting the v1.12 pipeline. When to apply (between Phase 3 and Phase 4b), the three-stage clustering rules, output artifacts (`findings_routed.json`, `dedup_clusters.json`, `dedup_ambiguous.json`, `severity_changes.json`), fallback to LLM dedup when scripts are unavailable, integration with M-10 (3-layer dedup) / M-13 (Kuprum) / M-25 (V12 external). Distinct from M-25: M-25 dedupes against external published indices via `scripts/grep_v12.sh`; M-26 dedupes internal cross-agent findings via `scripts/dedup.py`.
+
+### Changed
+
+- **`SKILL.md`** — added new "PHASE 4a: INVENTORY + MECHANICAL DEDUP (v1.12+)" section between Phase 3 (Breadth) and Phase 4b (Depth). Documents the three-script invocation sequence (`parse_findings.py` → `dedup.py` → `severity_router.py`), the optional LLM tie-break for ambiguous pairs, and the rationale (replaces non-deterministic LLM dedup with reproducible Python clustering that's ~100× cheaper). Lists downstream artifacts consumed by Phase 4b.
+
+- **`agents/hacking-agents/shared-rules.md`** — extended the FINDING/LEAD output format block to declare the optional schema-aligned fields agents MAY emit when known (`severity:`, `impact:`, `likelihood:`, `realism_filter:`, `location:`, `evidence:`). Existing pipe-delimited format is unchanged — agents that don't emit these fields still work. Added a paragraph explaining the mechanical dedup pipeline and how schema-aligned fields improve precision.
+
+- **`methodology/INDEX.md`** — registered M-26 with the validation note and trigger criteria.
+
+### Validation Summary
+
+- **Schema validation**: parser output validates against `findings_table.schema.json v1.0` (jsonschema library).
+- **Dedup correctness**: tested on synthetic 3-agent overlap of the same bug with different bug_class spellings (`missing-auth` / `missing-access-check` / `auth-missing`) → all 3 merged into 1 canonical (chose EXECUT-1 over ACCESS-1 because it had more evidence tags `[CODE, TRACE]` vs `[CODE]`). False-positive guard: same function with two legitimately different bugs (`missing-auth` + `rounding-loss` on `liquidate`) → correctly kept separate, flagged only as ambiguous for human glance.
+- **Severity matrix correctness**: 5-case test covers Critical-from-High/High, admin-trust downgrade preserving `pre_modifier`, VIEW_ONLY cap, design-choice cap to Informational, `--proven-only` cap to Low for findings with only `[CODE]` evidence.
+- **End-to-end smoke**: 4 breadth agents emitting 5 findings (1 cross-agent duplicate, 4 distinct) → 4 canonicals routed to Critical / High / Low / Medium with correct realism-filter adjustments.
+- **Format coexistence**: pipe-format and markdown-format findings in the same file parse together without conflict.
+- **Performance**: end-to-end pipeline (parse + dedup + severity) runs in < 100ms on 50-finding input. LLM inventory agent in prior versions took ~30s for the same volume.
+
+### Rollout
+
+The v1.12 scripts are opt-in for v1.12. v1.13 introduces a `--driver` flag that makes the deterministic phase orchestrator the default invocation path. The legacy LLM inventory flow stays available behind `--legacy` indefinitely; users without Python on their machine fall back to it automatically.
+
+---
+
 ## [1.11.0] - 2026-05-09
 
 **Origin**: User feedback that DewaxGuard reports and PoCs were hard to read for non-auditor stakeholders (project leads, junior devs, bounty triagers). Findings used auditor jargon (`reentrancy`, `TOCTOU`, `monotonicity`, `composability`) that forced the reader to translate before deciding whether to merge a fix. PoC files used opaque comments (`// Impersonate caller`, `// Set storage slot`) that did not explain the attack story. The fix is a single style rule, referenced from every place a finding or PoC is written.
