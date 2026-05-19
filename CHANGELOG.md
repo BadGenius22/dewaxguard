@@ -1,5 +1,55 @@
 # DewaxGuard Changelog
 
+## [1.13.0] - 2026-05-19
+
+**Origin**: Continuation of the Plamen v2.0.0 port started in v1.12. Plamen v2 deprecated its LLM orchestrator with a deterministic Python driver that spawns `claude -p` subprocesses per phase — each phase runs in a fresh context window, gates check the output before advancing, and per-phase checkpoints make the pipeline crash-resumable. v1.13 ports this driver architecture to dewaxguard as an opt-in `--driver` invocation. The legacy prompt-only flow (`/dewaxguard`) remains the default until at least v1.15, so existing workflows are unaffected.
+
+### Added
+
+- **`scripts/dewaxguard_driver.py`** — deterministic phase orchestrator. Each phase is an isolated `claude -p` (or `codex exec` via `--backend codex`) subprocess invoked from Python. Per-phase timeout, retry budget with targeted retry hints, checkpoint sentinels under `scratchpad/checkpoints/`, manifest under `scratchpad/driver/manifest.json`, transcripts saved per retry. Phase registry: preflight → recon → breadth → inventory → verify → report. Mode filter (`mode_min` field on each Phase) excludes `verify` in `light` mode. CLI flags: `--mode {light|core|thorough}`, `--src`, `--audit-id`, `--backend {claude|codex}`, `--phase` (run only named phase, repeatable), `--resume` (skip phases with existing checkpoints), `--retry-budget`, `--dry-run`, `--skip-gates`.
+
+- **`prompts/phases/00_preflight.md`** — phase template for the MANDATORY Session-Start Preflight, instantiated by the driver with project-state placeholders ({{AUDIT_ID}}, {{SRC_PATH}}, {{SCRATCHPAD}}, {{SKILL_ROOT}}, etc.). Self-contained — the fresh `claude -p` subprocess has no prior context, treats the prompt as its entire task.
+
+- **`prompts/phases/10_recon.md`** — recon phase template. Delegates to SKILL.md PHASE 1.0 + 1.1 methodology. Lists required outputs the content gate checks for.
+
+- **`prompts/phases/30_breadth.md`** — breadth phase template. Spawns 4 (light) or 8 (core/thorough) hacking agents in parallel. Mandates the pipe-delimited FINDING/LEAD output format with optional schema-aligned fields per v1.12.
+
+- **`prompts/phases/40_inventory.md`** — inventory phase template. Invokes the three v1.12 mechanical scripts (`parse_findings.py` → `dedup.py` → `severity_router.py`) and handles the optional LLM tie-break for ambiguous dedup pairs. Phase 4a is now mostly mechanical.
+
+- **`prompts/phases/50_verify.md`** — verification phase template. Per-finding PoC generation + execution per `rules/fork-poc-execution.md`. Records evidence tags (POC-PASS / POC-FAIL / CODE-TRACE). Mandates plain-English PoC comments per v1.11.
+
+- **`prompts/phases/60_report.md`** — report assembly template. Either spawns the 4-agent tier writer pipeline (thorough mode) or produces the report in a single pass (light/core). Strict on no-internal-IDs-in-body, plain-English style, complete severity sections.
+
+- **`scripts/gates/content_check.py`** — content gate. Verifies each phase's required outputs (a) exist, (b) are non-empty above MIN_BYTES, (c) are not stub placeholders ("I will analyse", "TBD", etc.), (d) match the content shape expected for their type — `findings_*.json` parsed as valid JSON with `findings` array; `analysis_*.md` / `verify_*.md` contain ≥ 1 `FINDING |` or `## Finding [` header; `AUDIT_REPORT.md` contains ≥ 3 of the expected sections (executive summary, summary, critical, high, medium, low). Generates structured FAIL messages the driver injects into retry prompts.
+
+- **`scripts/gates/coverage_check.py`** — coverage gate. Parses the `claude -p` stream-json transcripts saved under `scratchpad/driver/` to extract every `Read` (and `Grep`/`Glob`) tool invocation. Compares against the enumerated in-scope source files (auto-discovered under `--src` filtered by `.sol`/`.rs`/`.move`/`.cpp`/`.cc`/`.hpp`/`.h`/`.go` extensions, excluding common non-audit paths). Targets the structural enforcement of "every in-scope file must be read by some agent" — failures emit specific file paths the next retry must read. Falls open safely when transcripts are not yet available.
+
+### Changed
+
+- **`SKILL.md`** — added a "Driver mode (v1.13+, opt-in)" callout near the Usage line documenting the `python3 scripts/dewaxguard_driver.py --mode core ...` invocation. The legacy `/dewaxguard` prompt-only flow remains the default; users opt in to the driver explicitly. Behavior of the legacy flow is unchanged.
+
+### Validation Summary
+
+- **Full pipeline traversal**: dry-run + skip-gates → all 6 phases (preflight, recon, breadth, inventory, verify, report) invoked in registry order, manifest written with prompt_bytes per phase, checkpoints written.
+- **Crash resume**: second invocation with `--resume` → all 6 phases SKIPped because checkpoints exist.
+- **Phase filter**: `--phase inventory` → only inventory ran, others not invoked.
+- **Mode filter**: `--mode light` correctly excludes `verify` (mode_min=core); 5 phases ran instead of 6.
+- **Retry behavior**: dry-run WITHOUT skip-gates → content gate correctly detects missing required outputs, retries with injected hint message, aborts after retry_budget exhausted.
+- **Manifest content**: prompt body NOT embedded in manifest (only `prompt_bytes` + transcript path), keeping the manifest readable for crash diagnostics.
+
+### Not in this release (deferred)
+
+- Coverage gate parsing has not been validated against a real `claude -p` stream-json transcript (only against synthetic non-existent transcripts that correctly FAIL). The regex assumes `{"type":"tool_use","name":"Read","input":{"file_path":"..."}}` shape per Anthropic's documented stream-json format. v1.13.1 will validate end-to-end against a live run.
+- The `codex` backend is wired in but not validated. Codex CLI users should expect rough edges until v1.13.2.
+- The per-phase templates (recon, breadth, verify, report) are intentionally concise — they delegate to existing SKILL.md sections for detailed methodology. Full per-phase prompt expansion is v1.13.1+ work.
+- Phase 4b (depth), Phase 4b.1 (Nemesis), Phase 4c (chain analysis), niche agents, and Phase 5d (bug validator) are NOT yet driver phases. The current driver MVP runs preflight → recon → breadth → inventory → verify → report. Depth + chain + validator integration is v1.13.2 work.
+
+### Rollout
+
+`--driver` is opt-in for v1.13. The legacy SKILL.md prompt-only flow remains the default invocation when users type `/dewaxguard`. After v1.13.x stabilizes and the deferred items ship, v1.14 will introduce L1 mode (`/dewaxguard l1`) and v1.15 may flip the driver to the default with `--legacy` as the escape hatch.
+
+---
+
 ## [1.12.0] - 2026-05-19
 
 **Origin**: Plamen v2.0.0 (2026-05-13) deprecated its LLM orchestrator after observing context-saturation drift on multi-agent audits — late-pipeline phases silently skipped mandatory dedup work, and the same finding shipped 3-5x in the report under different titles. dewaxguard v1.12 ports the mechanical-Python pattern at the inventory layer: three deterministic scripts replace the LLM-led inventory phase. The phase driver, content/coverage gates, and L1 mode follow in v1.13/v1.14.

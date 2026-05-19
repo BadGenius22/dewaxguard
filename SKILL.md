@@ -75,6 +75,7 @@ If any check fails, RE-READ the missing file. Do not proceed.
 - **Platform-Specific Bug Validation** (pre-submission quality gate)
 
 > **Usage**: `/dewaxguard [light|core|thorough] [path] [options]`
+> **Driver mode (v1.13+, opt-in)**: `python3 ~/.claude/skills/dewaxguard/scripts/dewaxguard_driver.py --mode core --src ./contracts [--audit-id X] [--resume]` — replaces the prompt-only LLM orchestrator with a deterministic Python driver that spawns `claude -p` subprocesses per phase, runs content+coverage gates between phases, and checkpoints for crash resume. Legacy prompt-only mode remains the default.
 > **Self-Improvement**: `/dewaxguard improve` | `/dewaxguard batch-import` | `/dewaxguard benchmark` | `/dewaxguard consolidate`
 > **Languages**: Solidity, Rust/Solana, Rust/Soroban (Stellar), Move/Aptos, Move/Sui, C/C++ (native ledger nodes like rippled, Bitcoin Core)
 > **Platforms**: Code4rena, Sherlock, Cantina, Immunefi, HackenProof
