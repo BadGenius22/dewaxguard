@@ -76,8 +76,9 @@ If any check fails, RE-READ the missing file. Do not proceed.
 
 > **Usage**: `/dewaxguard [light|core|thorough] [path] [options]`
 > **Driver mode (v1.13+, opt-in)**: `python3 ~/.claude/skills/dewaxguard/scripts/dewaxguard_driver.py --mode core --src ./contracts [--audit-id X] [--resume]` — replaces the prompt-only LLM orchestrator with a deterministic Python driver that spawns `claude -p` subprocesses per phase, runs content+coverage gates between phases, and checkpoints for crash resume. Legacy prompt-only mode remains the default.
+> **L1 mode (v1.14+)**: append `--l1` to the driver invocation for Go/Rust node-client audits. Adds Phase 0.5 Bake (ast-grep/opengrep batch indexing); swaps `depth-state-trace` + `depth-external` for `depth-consensus-invariant` + `depth-network-surface`; applies the L1 severity matrix (`rules/l1-severity-matrix.md`) with evidence floors (`[DIFF-PASS]` / `[NON-DET-PASS]` → High minimum). Targets: Geth / Reth / Erigon / Lighthouse-Go variants / Prysm / Cosmos SDK chains / CometBFT / Bitcoin Core / rippled.
 > **Self-Improvement**: `/dewaxguard improve` | `/dewaxguard batch-import` | `/dewaxguard benchmark` | `/dewaxguard consolidate`
-> **Languages**: Solidity, Rust/Solana, Rust/Soroban (Stellar), Move/Aptos, Move/Sui, C/C++ (native ledger nodes like rippled, Bitcoin Core)
+> **Languages**: Solidity, Rust/Solana, Rust/Soroban (Stellar), Move/Aptos, Move/Sui, C/C++ (native ledger nodes like rippled, Bitcoin Core), Go (L1 node clients)
 > **Platforms**: Code4rena, Sherlock, Cantina, Immunefi, HackenProof
 
 ---

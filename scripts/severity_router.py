@@ -59,6 +59,15 @@ MATRIX: dict[str, dict[str, str]] = {
 PROOF_TAGS = {"POC-PASS", "MEDUSA-PASS", "PROD-ONCHAIN", "PROD-SOURCE", "PROD-FORK",
               "DIFF-PASS", "CONFORMANCE-PASS", "NON-DET-PASS", "FUZZ-PASS"}
 
+# L1 evidence-floor rules (per rules/l1-severity-matrix.md).
+# These tags imply a minimum severity floor regardless of Impact x Likelihood matrix.
+L1_EVIDENCE_FLOORS = {
+    "DIFF-PASS": "High",        # two implementations disagree on same input -> consensus risk
+    "NON-DET-PASS": "High",     # same input -> different state across validators
+    "FUZZ-PASS": "Medium",      # fuzz counterexample; impact then determines higher tier
+    "CONFORMANCE-PASS": None,   # severity matches the violated invariant; no fixed floor
+}
+
 
 def sev_index(s: str | None) -> int:
     if s is None:
@@ -82,11 +91,26 @@ def cap(s: str, max_tier: str) -> str:
     return SEVERITIES[min(i, mi)]
 
 
-def derive_severity(finding: dict, proven_only: bool = False) -> tuple[str | None, str | None, list[str]]:
+def apply_l1_evidence_floor(severity: str, evidence_tags: list[str]) -> tuple[str, list[str]]:
+    """If any L1 evidence tag implies a higher severity floor, raise severity to it.
+    Returns (new_severity, applied_modifiers)."""
+    applied: list[str] = []
+    for tag in evidence_tags or []:
+        floor = L1_EVIDENCE_FLOORS.get(tag)
+        if floor is None:
+            continue
+        if sev_index(floor) > sev_index(severity):
+            applied.append(f"+evidence floor: [{tag}] raises to {floor} (was {severity})")
+            severity = floor
+    return severity, applied
+
+
+def derive_severity(finding: dict, proven_only: bool = False, l1_mode: bool = False) -> tuple[str | None, str | None, list[str]]:
     """Return (final_severity, severity_pre_modifier, applied_modifiers).
 
     severity_pre_modifier is set only when at least one downgrade was applied.
     Returns (None, None, []) if neither severity nor impact+likelihood are present.
+    When l1_mode=True, applies L1 evidence-floor logic from rules/l1-severity-matrix.md.
     """
     applied: list[str] = []
     explicit = finding.get("severity")
@@ -155,10 +179,19 @@ def derive_severity(finding: dict, proven_only: bool = False) -> tuple[str | Non
                 applied.append(f"cap@Low: proven-only (no proof tag, was {severity})")
                 severity = new
 
+    # Step 5: L1 evidence-floor (raises severity if a high-floor tag is present)
+    # Applied LAST so the floor wins over downgrades — per rules/l1-severity-matrix.md
+    # "If the matrix says Low but the evidence is [DIFF-PASS], the FINAL severity is High".
+    if l1_mode:
+        new_sev, l1_applied = apply_l1_evidence_floor(severity, finding.get("evidence_tags") or [])
+        if new_sev != severity:
+            applied.extend(l1_applied)
+            severity = new_sev
+
     return (severity, pre, applied)
 
 
-def route(data: dict, proven_only: bool = False) -> tuple[dict, list[dict]]:
+def route(data: dict, proven_only: bool = False, l1_mode: bool = False) -> tuple[dict, list[dict]]:
     """Walk data['findings'], assign severities, return (data, diff_records)."""
     diff: list[dict] = []
     for f in data.get("findings") or []:
@@ -167,7 +200,7 @@ def route(data: dict, proven_only: bool = False) -> tuple[dict, list[dict]]:
             continue
         old_sev = f.get("severity")
         old_pre = f.get("severity_pre_modifier")
-        sev, pre, applied = derive_severity(f, proven_only=proven_only)
+        sev, pre, applied = derive_severity(f, proven_only=proven_only, l1_mode=l1_mode)
         if sev is None:
             continue
         if sev != old_sev or pre != old_pre:
@@ -199,12 +232,15 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("-o", "--out", default="-", help="Output JSON (- for stdout).")
     ap.add_argument("--proven-only", action="store_true",
                     help="Cap findings with no proof tag at Low. Implements PROVEN_ONLY mode.")
+    ap.add_argument("--l1", action="store_true",
+                    help="Apply L1 evidence-floor logic per rules/l1-severity-matrix.md "
+                         "(DIFF-PASS / NON-DET-PASS -> High floor; FUZZ-PASS -> Medium floor).")
     ap.add_argument("--diff-out", default=None, help="Write a per-finding diff log to this path.")
     ap.add_argument("--report", action="store_true", help="Print human-readable change report to stderr.")
     args = ap.parse_args(argv)
 
     data = json.loads(Path(args.input).read_text(encoding="utf-8"))
-    routed, diff = route(data, proven_only=args.proven_only)
+    routed, diff = route(data, proven_only=args.proven_only, l1_mode=args.l1)
 
     out_text = json.dumps(routed, indent=2, ensure_ascii=False)
     if args.out == "-":

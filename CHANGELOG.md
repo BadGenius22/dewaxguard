@@ -1,5 +1,61 @@
 # DewaxGuard Changelog
 
+## [1.14.0] - 2026-05-19
+
+**Origin**: Plamen v2.0.0 introduced an L1 infrastructure audit mode (`/plamen l1`) for Go/Rust blockchain node-client auditing — consensus engines, p2p networking, mempool, RPC, validator lifecycle. dewaxguard v1.14.0 ports the L1 mode as an additive layer on top of the v1.13.x driver: opt in via `--l1` and the driver swaps in L1-specific phases and agents.
+
+### Added
+
+- **`platform-quirks/go.md`** (~700 lines) — Go-language quirks file modeled on `platform-quirks/cpp.md`. Covers 12 critical Go semantics: map iteration order non-determinism (consensus-critical), slice aliasing (silent data corruption), `time.Now()` and wall-clock reads in consensus (forks), goroutine leaks and context cancellation, `defer` ordering and error path cleanup, silent integer overflow (Go does NOT panic), `nil` interface vs typed `nil` equality trap, concurrent map access panics, JSON/RLP/Borsh unmarshaling type confusion, IBC/bridge/cross-chain message handling, p2p / networking surface (12 attack vectors with mitigations), consensus state machine determinism. Includes baseline known-issue catalog (Geth, Reth, Cosmos SDK, CometBFT advisories) and quick-grep patterns for recon.
+
+- **`agents/l1/depth-consensus-invariant.md`** — new L1 depth agent. Targets cross-validator divergence, slashing condition errors (SOUND/COMPLETE/PRIVATE/EFFICIENT 4-question matrix), fork-choice errors, finality bugs, validator set transition errors, IBC/bridge message handling, resource accounting drift, state pruning races. Six-step methodology: cross-validator divergence trace, differential against reference implementation, spec conformance, fuzz exploration, slashing-condition matrix, validator lifecycle race. Emits findings with IDs [DCI-N] and L1 evidence tags. Replaces depth-state-trace in L1 mode.
+
+- **`agents/l1/depth-network-surface.md`** — new L1 depth agent. Targets eclipse, sybil, mempool DoS, peer-scoring poisoning, gossip amplification, slow loris, per-method RPC DoS, bandwidth amplification, block/packet withholding, censorship via peer-score manipulation, authentication bypass, peer identity spoofing. Six-step methodology: resource budget audit, per-attack-vector enumeration, peer-scoring symmetry check, authentication ladder, differential against reference implementation, fuzz the wire format. Emits findings with IDs [DNS-N]. Replaces depth-external in L1 mode.
+
+- **`rules/l1-severity-matrix.md`** — L1-specific severity matrix (Immunefi v2.3-aligned). Distinct from smart-contract matrix because L1 impacts have different primary axes (chain halt, validator slashing, consensus stall, network partition). Includes 12-row impact table x 3-column likelihood, realism downgrade modifiers, evidence-tag severity floors (`[DIFF-PASS]` / `[NON-DET-PASS]` → High minimum), per-platform interpretation rules (Immunefi mapping table, Code4rena L1 contests, Sherlock L1 thresholds).
+
+- **`scripts/bake_l1.sh`** — Phase 0.5 Bake step. Detects best available tool (ast-grep → opengrep → ripgrep → POSIX grep) and runs language-specific patterns to extract 8 bake artifacts under `{SCRATCHPAD}/bake/`: non_deterministic_calls.md, consensus_state_machine.md, slashing_conditions.md, validator_lifecycle.md, p2p_message_handlers.md, rpc_methods.md, mempool_admission.md, peer_scoring_rules.md. Each artifact maps to a specific consumer (depth-consensus-invariant or depth-network-surface). PCRE auto-detection with POSIX fallback for portability.
+
+- **`prompts/phases/05_bake.md`** — phase template for the L1 Bake subprocess. Invokes `scripts/bake_l1.sh`, supplements with targeted greps when the POSIX fallback was used, optionally fetches baseline known-issue catalogs via WebFetch, writes `bake_summary.md` for handoff to depth agents.
+
+- **`prompts/phases/45_depth_l1.md`** — L1 variant of the depth phase. Routes findings to L1 agents via bug_class root tokens specific to consensus/network domains. Spawns depth-consensus-invariant, depth-network-surface, depth-lowlevel (Go-aware), depth-runtime; plus depth-token-flow / depth-edge-case when the chain has CosmWasm/EVM modules. Each agent receives a per-domain bake artifact subset.
+
+### Changed
+
+- **`scripts/dewaxguard_driver.py`** — `Phase` dataclass extended with `l1_only`, `sc_only`, `l1_template` fields. `select_phases` filters by `l1` flag. `invoke_phase` swaps to `l1_template` when `--l1` is set. New `--l1` CLI flag. Bake phase entry added (positioned between recon and breadth, `l1_only=True`). Depth phase entry now declares `l1_template="45_depth_l1.md"`. `L1_MODE` placeholder added to template-instantiation context. Driver header logs `[L1]` tag when L1 mode is active.
+
+- **`scripts/severity_router.py`** — new `--l1` flag adds L1 evidence-floor logic per `rules/l1-severity-matrix.md`. Tags `[DIFF-PASS]` / `[NON-DET-PASS]` raise severity floor to High; `[FUZZ-PASS]` raises to Medium. Floor is applied AFTER downgrades (per the matrix rule "If the matrix says Low but the evidence is [DIFF-PASS], the FINAL severity is High"). Pre-existing smart-contract matrix unchanged when `--l1` is absent.
+
+- **`SKILL.md`** — added L1 mode callout near the Usage line; documents target chains (Geth / Reth / Erigon / Lighthouse / Prysm / Cosmos SDK / CometBFT / Bitcoin Core / rippled), the swapped agents, the severity-floor behavior. Added `Go` to the supported-languages line.
+
+### Validation
+
+- **Phase selection per mode + L1**:
+  - Light + SC (8 phases): preflight → recon → breadth → inventory → niche → depth → chain → report
+  - Core + SC (10): + verify + validator
+  - Thorough + SC (11): + nemesis
+  - Light + L1 (9): + bake
+  - Core + L1 (11): + bake + verify + validator
+  - Thorough + L1 (12): + bake + nemesis + verify + validator
+- **Template swap**: L1 mode loads `45_depth_l1.md` for depth phase; SC mode loads `45_depth.md`. Verified by transcript inspection.
+- **L1 evidence floor**: synthetic finding with `impact_level=Low likelihood=Medium` + evidence `[NON-DET-PASS]` routes to **High** under `--l1` (matrix says Low; floor wins). Same finding under SC mode routes to **Low**.
+- **Bake script**: 8 artifacts emitted; POSIX-grep fallback verified working after PCRE-translation fix (map-range regex previously missed because POSIX ERE doesn't support `\s`/`\w`/`\b`).
+- **Full pipeline traversal** (thorough + L1): all 12 phases run cleanly in dry-run, manifest written, prompt_bytes per phase recorded.
+
+### Not in this release (deferred)
+
+- L1 evidence-floor wiring in the inventory phase template (`40_inventory.md`) — currently the inventory invokes severity_router without `--l1`, so the floor only applies when severity_router is invoked manually. Add `L1_MODE` placeholder check to 40_inventory.md in v1.14.1.
+- platform-quirks/rust.md for L1 Rust node clients (Reth, Lighthouse Rust, Solana validator). v1.14.x.
+- Phase 0.5 Bake patterns for Rust — currently only Go is fully supported. v1.14.x.
+- ast-grep / opengrep integration validated against real codebases (only POSIX grep fallback tested in this release).
+- WebFetch-based known-issue catalog freshness check (currently relies on agent judgment).
+
+### Rollout
+
+`--l1` is a NEW flag on the driver, independent of `--driver` flag. Both opt-in. Smart-contract auditing remains unchanged in default invocation. The v1.14 milestone closes out the Plamen v2.0.0 port — every headline feature from that release now has a dewaxguard equivalent.
+
+---
+
 ## [1.13.2] - 2026-05-19
 
 **Origin**: v1.13.0 and v1.13.1 left 5 phase templates (preflight, recon, breadth, verify, report) as thin MVP delegations to SKILL.md — each ~2-3KB and dependent on the fresh `claude -p` subprocess chasing cross-references. v1.13.2 expands all 5 to self-contained ~10-18KB templates with full inline methodology. Total prompt budget across all 11 phases is now ~106KB.

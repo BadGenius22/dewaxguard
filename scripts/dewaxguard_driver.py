@@ -62,6 +62,9 @@ class Phase:
     timeout_seconds: int = 1800  # 30min default; recon/breadth/depth get 2x in v2
     gates: list[str] = field(default_factory=list)  # script names under scripts/gates/
     mode_min: str = "light"  # smallest mode that runs this phase
+    l1_only: bool = False  # if True, this phase runs ONLY when --l1 is set
+    sc_only: bool = False  # if True, this phase runs ONLY when --l1 is NOT set
+    l1_template: str | None = None  # override template path when --l1 is set
 
 # Order matters: the driver runs phases in registry order.
 PHASES: list[Phase] = [
@@ -83,6 +86,17 @@ PHASES: list[Phase] = [
         ],
         timeout_seconds=3600,
         gates=["content_check"],
+    ),
+    Phase(
+        name="bake",
+        template="05_bake.md",
+        required_outputs=[
+            "scratchpad/bake_summary.md",
+            "scratchpad/bake/_bake_summary.md",
+        ],
+        timeout_seconds=900,
+        gates=["content_check"],
+        l1_only=True,  # L1 mode only — runs between recon and breadth
     ),
     Phase(
         name="breadth",
@@ -111,6 +125,7 @@ PHASES: list[Phase] = [
     Phase(
         name="depth",
         template="45_depth.md",
+        l1_template="45_depth_l1.md",  # L1 mode swaps in the L1 depth dispatcher
         required_outputs=["scratchpad/depth_*_findings.md"],  # glob; ≥1 required
         timeout_seconds=5400,  # 90min — 6 parallel agents
         gates=["content_check"],
@@ -180,6 +195,7 @@ class DriverState:
     retry_budget: int
     dry_run: bool
     skip_gates: bool = False
+    l1: bool = False  # L1 mode — adds Bake phase, swaps depth template for L1 dispatcher
 
     @property
     def manifest_path(self) -> Path:
@@ -222,6 +238,7 @@ def instantiate_template(template_path: Path, state: DriverState, phase: Phase, 
         "PHASE_NAME": phase.name,
         "TIMEOUT_SECONDS": str(phase.timeout_seconds),
         "ISO_NOW": _now_iso(),
+        "L1_MODE": "true" if state.l1 else "false",
         **extra,
     }
     for k, v in placeholders.items():
@@ -261,7 +278,9 @@ def run_gates(state: DriverState, phase: Phase) -> tuple[bool, list[str]]:
 # ── subprocess invocation ────────────────────────────────────────────────────
 def invoke_phase(state: DriverState, phase: Phase, retry_n: int = 0, retry_hint: str | None = None) -> dict:
     """Spawn `claude -p` (or `codex exec`) for one phase. Returns transcript record."""
-    template_path = state.skill_root / "prompts" / "phases" / phase.template
+    # In L1 mode, use the L1 variant template if the phase defines one.
+    template_name = phase.l1_template if (state.l1 and phase.l1_template) else phase.template
+    template_path = state.skill_root / "prompts" / "phases" / template_name
     if not template_path.exists():
         return {"phase": phase.name, "status": "error", "error": f"template not found: {template_path}"}
 
@@ -332,9 +351,17 @@ def invoke_phase(state: DriverState, phase: Phase, retry_n: int = 0, retry_hint:
 
 
 # ── pipeline driver ──────────────────────────────────────────────────────────
-def select_phases(mode: str, only: list[str] | None) -> list[Phase]:
+def select_phases(mode: str, only: list[str] | None, l1: bool = False) -> list[Phase]:
     threshold = MODE_ORDER.get(mode, 0)
-    out = [p for p in PHASES if MODE_ORDER.get(p.mode_min, 0) <= threshold]
+    out: list[Phase] = []
+    for p in PHASES:
+        if MODE_ORDER.get(p.mode_min, 0) > threshold:
+            continue
+        if p.l1_only and not l1:
+            continue
+        if p.sc_only and l1:
+            continue
+        out.append(p)
     if only:
         out = [p for p in out if p.name in only]
     return out
@@ -352,8 +379,9 @@ def run_pipeline(state: DriverState, only: list[str] | None = None, resume: bool
     manifest["last_run_at"] = _now_iso()
     state.save_manifest(manifest)
 
-    phases = select_phases(state.mode, only)
-    print(f"[driver] audit_id={state.audit_id} mode={state.mode} backend={state.backend} phases={[p.name for p in phases]}", file=sys.stderr)
+    phases = select_phases(state.mode, only, l1=state.l1)
+    l1_tag = " [L1]" if state.l1 else ""
+    print(f"[driver]{l1_tag} audit_id={state.audit_id} mode={state.mode} backend={state.backend} phases={[p.name for p in phases]}", file=sys.stderr)
 
     overall = 0
     for phase in phases:
@@ -420,6 +448,11 @@ def main(argv: list[str] | None = None) -> int:
                     help="Print what would be invoked, don't spawn subprocesses.")
     ap.add_argument("--skip-gates", action="store_true",
                     help="Skip content/coverage gate checks (smoke tests + emergency bypass).")
+    ap.add_argument("--l1", action="store_true",
+                    help="L1 mode: audit a Go/Rust node client. Adds Phase 0.5 Bake; "
+                         "swaps depth-state-trace + depth-external for depth-consensus-invariant + "
+                         "depth-network-surface; applies L1 severity matrix and evidence floors. "
+                         "Use for Geth/Reth/Lighthouse/Cosmos-SDK/CometBFT-class targets.")
     args = ap.parse_args(argv)
 
     src = args.src.resolve()
@@ -443,6 +476,7 @@ def main(argv: list[str] | None = None) -> int:
         retry_budget=args.retry_budget,
         dry_run=args.dry_run,
         skip_gates=args.skip_gates,
+        l1=args.l1,
     )
     return run_pipeline(state, only=args.phase, resume=args.resume)
 
