@@ -1,5 +1,42 @@
 # DewaxGuard Changelog
 
+## [1.13.2] - 2026-05-19
+
+**Origin**: v1.13.0 and v1.13.1 left 5 phase templates (preflight, recon, breadth, verify, report) as thin MVP delegations to SKILL.md — each ~2-3KB and dependent on the fresh `claude -p` subprocess chasing cross-references. v1.13.2 expands all 5 to self-contained ~10-18KB templates with full inline methodology. Total prompt budget across all 11 phases is now ~106KB.
+
+### Changed
+
+- **`prompts/phases/00_preflight.md`** — expanded from 87 to 175 lines. Inlines the project-local context table (CLAUDE.md, DEEP_DIVE_PLAN, MANIFEST, CONTEST_FAQ, KNOWN_ISSUES_INDEX). Inlines the V12-style AI-auditor probe (M-25) with the exact `grep_v12.sh --count` and `--invalid-only` invocations. Inlines the cross-audit context (LEARNED_INDEX, methodology/INDEX). Adds language detection probe commands with the file-count breakdown. Inlines the per-language platform-quirks routing table with mandatory-vs-optional markers. Self-check requires preflight.md ≥ 1500 bytes with all sections present.
+
+- **`prompts/phases/10_recon.md`** — expanded from 52 to 250+ lines. Full Phase 1.0 preprocessor invocation inlined (build_recon_maps.sh + squeezer_rust.py) with expected artifacts table mapping each output to its downstream consumer. Phase 1.1 fully spelled-out: 4 sub-agents (1A RAG probe, 1B Docs+Fork+External, 2 Build+Static, 3 Attack-Surface+Templates) each with complete Task() invocation block including model selection, inputs to read, methodology, and per-agent SCOPE clause. Includes niche-agent flag detection at step 6 of Agent 3 (MISSING_EVENT, HAS_SIGNATURES, HAS_DOCS, HAS_MULTI_CONTRACT, HAS_UPGRADEABLE_PROXY). Self-check verifies all required artifacts exist with content-shape checks.
+
+- **`prompts/phases/30_breadth.md`** — expanded from 60 to 200+ lines. Removes the table-only agent list; replaces with a full per-agent dispatcher template that fills in agent_name, agent_file, output_file, preprocessor_map, read_budget, grep_budget per mode. Documents the 8 agents (or 4 in light) with mode-specific model selection (opus for math/access/invariant in core; all opus in thorough; all sonnet in light). Inlines injectable-skill routing table (VAULT_ACCOUNTING → invariant or economic-security; LENDING_PROTOCOL_SECURITY → economic + math + invariant; etc.). Adds a breadth_dispatch.md log requirement so coverage gaps are debuggable.
+
+- **`prompts/phases/50_verify.md`** — expanded from 76 to 290+ lines. Inlines verification queue construction with mode-dependent scope (light=skip, core=Medium+ only, thorough=ALL severities + fuzz variants). Inlines per-language PoC strategy: EVM Foundry with exact foundry.toml + fork RPC table, Solana with LiteSVM and solana-test-validator commands, Stellar/Aptos/Sui Move test commands, C/C++ rippled unit test invocation. Inlines Foundry cheatcode plain-English comment dictionary. Inlines test structure templates for EVM and Solana. Variant exploration table (timing/amount/ordering/initial-state/wrapper) with the rule that 2+ variant failures justify [FORK-FAIL]. Per-finding markdown output format with status header convention ([VERIFIED]/[UNVERIFIED]/[CONTESTED]/[FALSE_POSITIVE]).
+
+- **`prompts/phases/60_report.md`** — expanded from 60 to 320+ lines. Strategy selection table (light=single-pass, core=single-pass OR 4-agent pipeline based on count, thorough=4-agent always). Inlines all 4 agent prompts (Index haiku, Critical+High writer opus, Medium writer sonnet, Low+Info writer sonnet, Assembler haiku/sonnet by count). Completeness assertion inline after Index agent (`hypothesis_count == report_ids + excluded_count + consolidated_absorbed`). Inlines the canonical report structure with all sections. Inlines per-finding markdown format. Inlines platform impact quantification rules per platform (Sherlock dollar threshold, Code4rena conditions/likelihood, Cantina matrix cells, Immunefi categories). 6 quality gates (finding count consistency, no internal IDs in body, valid cross-references, no duplicates, plain-English self-check, sentence length).
+
+### Validation
+
+- Full 11-phase traversal (thorough mode) completes cleanly in dry-run.
+- Per-phase prompt sizes after expansion: preflight 8.8KB, recon 18.0KB, breadth 10.7KB, inventory 4.6KB, niche 6.2KB, depth 6.7KB, nemesis 5.8KB, chain 7.8KB, verify 13.8KB, validator 7.3KB, report 15.9KB. Total ~106KB.
+- Mode filtering still correct: light skips verify+validator+nemesis (8 phases), core skips nemesis (10), thorough runs all 11.
+- Checkpoint resume still works.
+
+### Not in this release (still deferred)
+
+- Coverage gate end-to-end validation against a live `claude -p` stream-json transcript.
+- Codex backend validation (the dispatcher is wired but no real run yet).
+- Adaptive depth loop iterations 2-3 with 4-axis confidence scoring (the depth phase runs iteration 1 only; iterations 2+ require the scoring pipeline from phase4-confidence-scoring.md).
+- Dedicated RAG validation sweep as its own phase (currently embedded inline in chain phase).
+- M-21 cross-agent contradiction protocol as a structural enforcement (currently it's prose-only methodology).
+
+### Rollout
+
+v1.13.2 completes the v1.13 phase-driver hardening work. The driver now has 11 self-contained phases covering preflight through report. `--driver` remains opt-in; legacy SKILL.md prompt-only flow is still the default. The next milestone is v1.14 L1 mode (Go/Rust node-client audits) which adds new surface on top of the now-stable driver.
+
+---
+
 ## [1.13.1] - 2026-05-19
 
 **Origin**: Continuation of v1.13.0. The MVP driver covered 6 phases (preflight, recon, breadth, inventory, verify, report) — enough to validate the architecture but missing the depth, chain, Nemesis, validator, and niche-agent phases that make dewaxguard's pipeline actually useful. v1.13.1 ports those 5 phases into the driver with self-contained per-phase templates (100-300 lines each).

@@ -1,48 +1,201 @@
-# Phase: Breadth — 8 Hacking Agents (v1.13 driver)
+# Phase: Breadth — Hacking Agents (v1.13.2 driver)
 
 > Fresh `claude -p` subprocess. No prior context. Treat this prompt as your entire task.
+> You are the breadth dispatcher — your job is to spawn N parallel sub-agents and coordinate their outputs. You do NOT analyze source code yourself. You spawn the agents, wait for them, and self-check the outputs.
 
 ## Audit context
 
 - **Audit ID**: `{{AUDIT_ID}}`
-- **Mode**: `{{MODE}}`
+- **Mode**: `{{MODE}}` (light / core / thorough)
 - **Source path**: `{{SRC_PATH}}`
+- **Project root**: `{{PROJECT_ROOT}}`
 - **Scratchpad**: `{{SCRATCHPAD}}`
 - **Skill root**: `{{SKILL_ROOT}}`
+- **Phase budget**: `{{TIMEOUT_SECONDS}}` seconds
 
 ## Pre-requisites
 
-`{{SCRATCHPAD}}` must contain recon outputs: `build_status.md`, `design_context.md`, `attack_surface.md`, `contract_inventory.md`. Confirm with `ls {{SCRATCHPAD}}/` before proceeding.
+These must all exist (from prior recon phase):
 
-## Your task
+- `{{SCRATCHPAD}}/build_status.md` — language, tool availability flags
+- `{{SCRATCHPAD}}/design_context.md` — protocol overview, fork ancestry, external programs
+- `{{SCRATCHPAD}}/attack_surface.md` — entry points, privileged roles, niche flags
+- `{{SCRATCHPAD}}/contract_inventory.md` — every in-scope file with line count + purpose
+- `{{SCRATCHPAD}}/template_recommendations.md` — injectable skills, niche flags (optional but improves agent prompts)
+- Phase 1.0 preprocessor maps (`guard-map.md`, `state-flags.md`, `integration-map.md`, `math-map.md`, `unsafe-map.md`, `logic-anomaly-map.md`, `blackhat-maps.md`, `divergence-map.md`, `invariant-extract.md`, `auth-critical-files.txt`)
 
-Spawn all 8 hacking agents in parallel via the Task tool. Each reads `{{SRC_PATH}}` plus its agent instructions plus `{{SKILL_ROOT}}/agents/hacking-agents/shared-rules.md`. The agent definitions:
+If any of the **required** artifacts (first 4) is missing, write `{{SCRATCHPAD}}/breadth_failed.md` with the diagnostic and exit cleanly. The driver content gate will flag this and retry recon.
 
-| # | Agent | File | Output |
-|---|-------|------|--------|
-| 1 | Vector Scan | `{{SKILL_ROOT}}/agents/hacking-agents/vector-scan-agent.md` | `{{SCRATCHPAD}}/analysis_vector_scan.md` |
-| 2 | Math Precision | `{{SKILL_ROOT}}/agents/hacking-agents/math-precision-agent.md` | `{{SCRATCHPAD}}/analysis_math_precision.md` |
-| 3 | Access Control | `{{SKILL_ROOT}}/agents/hacking-agents/access-control-agent.md` | `{{SCRATCHPAD}}/analysis_access_control.md` |
-| 4 | Economic Security | `{{SKILL_ROOT}}/agents/hacking-agents/economic-security-agent.md` | `{{SCRATCHPAD}}/analysis_economic_security.md` |
-| 5 | Execution Trace | `{{SKILL_ROOT}}/agents/hacking-agents/execution-trace-agent.md` | `{{SCRATCHPAD}}/analysis_execution_trace.md` |
-| 6 | Invariant | `{{SKILL_ROOT}}/agents/hacking-agents/invariant-agent.md` | `{{SCRATCHPAD}}/analysis_invariant.md` |
-| 7 | Periphery | `{{SKILL_ROOT}}/agents/hacking-agents/periphery-agent.md` | `{{SCRATCHPAD}}/analysis_periphery.md` |
-| 8 | First Principles | `{{SKILL_ROOT}}/agents/hacking-agents/first-principles-agent.md` | `{{SCRATCHPAD}}/analysis_first_principles.md` |
+---
 
-In `light` mode, spawn only agents 1–4. In `core` and `thorough`, spawn all 8.
+## STEP 1 — Read project state, decide agent set
 
-**Output format**: every agent emits the pipe-delimited `FINDING | contract: ... | function: ... | bug_class: ... | group_key: ... | ...` blocks per `shared-rules.md`. Findings must include `verified:` source quotes; LEADs do not. Optional schema-aligned fields (`severity:`, `impact:`, `likelihood:`, `realism_filter:`, `location:`, `evidence:`) should be emitted when known — they feed the v1.12 mechanical inventory pipeline directly.
+Read the inputs above (use the Read tool). Specifically extract:
 
-**Coverage**: every in-scope source file must be read by at least one agent. The driver coverage gate fails the phase if any file is unread. Use the contract_inventory.md as the ground-truth list.
+- **LANGUAGE** from `build_status.md` (`evm` / `solana` / `stellar` / `aptos` / `sui` / `cpp` / `go`)
+- **In-scope file list** from `contract_inventory.md` — every file you spawn an agent for MUST be covered by at least one agent
+- **Niche flags** from `attack_surface.md` (these spawn additional niche agents in Phase 42, NOT here — but breadth agents should be aware)
+- **Injectable skills** from `template_recommendations.md` — for each Required injectable, the matching breadth agent gets the skill methodology appended to its prompt
+
+### Agent set per mode
+
+| Mode | Agents spawned | Models |
+|------|----------------|--------|
+| `light` | 4: vector-scan, math-precision, access-control, economic-security | all `sonnet` |
+| `core` | 8: + execution-trace, invariant, periphery, first-principles | `opus` for math-precision + access-control + invariant; `sonnet` for the rest |
+| `thorough` | 8 (same as core) | all `opus` |
+
+---
+
+## STEP 2 — Spawn agents in parallel
+
+Spawn ALL agents in ONE message via the Task tool. Do NOT serialize. Each agent reads its definition file + shared rules + plain-English style and writes to its assigned output path.
+
+### Agent dispatcher template
+
+For each agent N, use this Task invocation. Substitute the agent-specific fields from the table below.
+
+```
+Task(
+  subagent_type="general-purpose",
+  model="{MODEL}",
+  prompt="
+You are the {AGENT_NAME} hacking agent.
+
+## Mandatory reading (in order)
+1. Your agent definition: {{SKILL_ROOT}}/agents/hacking-agents/{AGENT_FILE}
+2. Shared output rules: {{SKILL_ROOT}}/agents/hacking-agents/shared-rules.md
+3. Plain-English style: {{SKILL_ROOT}}/rules/plain-english-style.md
+4. Finding output format: {{SKILL_ROOT}}/rules/finding-output-format.md
+{IF_QUIRKS_FILE_EXISTS}5. Platform quirks: {{SKILL_ROOT}}/platform-quirks/{LANGUAGE}.md (MANDATORY for stellar + cpp)
+{IF_INJECTABLE_SKILLS}6. Injectable skill(s) appended below
+
+## Inputs (scratchpad context)
+- {{SCRATCHPAD}}/design_context.md (protocol overview)
+- {{SCRATCHPAD}}/attack_surface.md (entry points + privileged roles)
+- {{SCRATCHPAD}}/contract_inventory.md (in-scope file list)
+{IF_PREPROCESSOR_MAP_EXISTS}- {{SCRATCHPAD}}/{MAP}.md (your domain's preprocessor map — start here for hot spots)
+
+## Tool budget
+- Reads: {READ_BUDGET}
+- Greps: {GREP_BUDGET}
+Per {{SKILL_ROOT}}/rules/agent-tool-budgets.md, when the budget exhausts, convert remaining hypotheses to LEADs and end with `budget: reads=N/MAX greps=N/MAX` line.
+
+## Coverage requirement
+Every file listed in {{SCRATCHPAD}}/contract_inventory.md whose 'primary purpose' touches your domain MUST be read at least once (use the Read tool, even if briefly). The driver coverage gate verifies this against your transcript.
+
+## Method
+Apply the methodology from your agent definition (file in step 1 above) to {{SRC_PATH}}. The definition contains:
+- What you ARE looking for (your domain)
+- What you are NOT looking for (other agents' domains)
+- Attack surfaces specific to {LANGUAGE}
+- Output-field requirements
+
+## Injectable skills (when present)
+{INJECTED_SKILL_METHODOLOGY}
+
+## Output
+Write to {{SCRATCHPAD}}/{OUTPUT_FILE} using the FINDING/LEAD pipe-delimited format from shared-rules.md. Include the optional schema-aligned fields when known: `severity:`, `impact:`, `likelihood:`, `realism_filter:`, `location:`, `evidence:`. These feed the v1.12 mechanical inventory pipeline directly.
+
+End your output with the budget receipt line.
+
+SCOPE: Write ONLY to {{SCRATCHPAD}}/{OUTPUT_FILE}. Do NOT read or write other agents' output files. Do NOT proceed to inventory, depth, chain, verification, or report. Return your findings and stop.
+"
+)
+```
+
+### Agent table
+
+| # | AGENT_NAME | AGENT_FILE | OUTPUT_FILE | Preprocessor MAP | READ_BUDGET | GREP_BUDGET |
+|---|------------|-----------|-------------|------------------|-------------|-------------|
+| 1 | Vector Scan | vector-scan-agent.md | analysis_vector_scan.md | blackhat-maps + logic-anomaly-map | 30 | 50 |
+| 2 | Math Precision | math-precision-agent.md | analysis_math_precision.md | math-map | 40 | 40 |
+| 3 | Access Control | access-control-agent.md | analysis_access_control.md | guard-map | 40 | 60 |
+| 4 | Economic Security | economic-security-agent.md | analysis_economic_security.md | integration-map | 40 | 50 |
+| 5 | Execution Trace | execution-trace-agent.md | analysis_execution_trace.md | state-flags + integration-map | 40 | 40 |
+| 6 | Invariant | invariant-agent.md | analysis_invariant.md | state-flags + invariant-extract | 40 | 40 |
+| 7 | Periphery | periphery-agent.md | analysis_periphery.md | integration-map | 30 | 40 |
+| 8 | First Principles | first-principles-agent.md | analysis_first_principles.md | unsafe-map + divergence-map | 40 | 50 |
+
+**Budget tuning per mode**: in `light` mode, halve all budgets. In `thorough` mode, multiply by 1.5. Round to nearest 5.
+
+### Injectable skills (when template_recommendations.md has them)
+
+Read `{{SCRATCHPAD}}/template_recommendations.md` "Injectable Skills" section. For each entry, the methodology file (e.g., `{{SKILL_ROOT}}/methodology/skills/injectable/vault_accounting.md`) is appended to the matching breadth agent's prompt under `## Injectable skills`. The mapping:
+
+| Injectable skill | Inject into |
+|-----------------|-------------|
+| VAULT_ACCOUNTING | invariant-agent OR economic-security-agent (whichever covers your protocol type) |
+| ACCOUNT_ABSTRACTION_SECURITY | access-control-agent + execution-trace-agent |
+| NFT_PROTOCOL_SECURITY | economic-security-agent + periphery-agent |
+| GOVERNANCE_ATTACK_VECTORS | access-control-agent + invariant-agent |
+| OUTCOME_DETERMINISM | first-principles-agent + execution-trace-agent |
+| LENDING_PROTOCOL_SECURITY | economic-security-agent + math-precision-agent + invariant-agent |
+| DEX_INTEGRATION_SECURITY | periphery-agent + economic-security-agent |
+
+If the methodology file doesn't exist on disk, skip the injection silently (note in your dispatch log).
+
+---
+
+## STEP 3 — Wait for completion, self-check
+
+After all agents return:
+
+1. **File existence**: verify every assigned `analysis_*.md` was written. If any agent's output is missing, the agent failed silently — re-spawn it ONCE with a retry hint.
+
+2. **Content shape**: each file must contain at least one `FINDING |` or `LEAD |` header. A file with only a `budget:` receipt and no findings is a valid output (agent found nothing) — that's fine.
+
+3. **Coverage**: every file listed in `contract_inventory.md` should appear as a `Read` invocation in at least one agent's transcript. The driver coverage gate enforces this — failures generate targeted retry hints with the missed file paths.
+
+4. **Budget receipts**: every output file ends with a `budget:` line. Missing budget receipts are a soft failure — note in your dispatch log but don't retry.
+
+5. **`verified:` quotes on FINDINGs**: per shared-rules.md, every FINDING must include `verified:` with ±2 lines pasted from the source. Findings without `verified:` downgrade to LEAD (the inventory phase will handle this mechanically). Don't fail this here.
+
+---
+
+## STEP 4 — Write dispatch log
+
+Write `{{SCRATCHPAD}}/breadth_dispatch.md` summarizing what was spawned:
+
+```markdown
+# Breadth Dispatch Log — {{AUDIT_ID}}
+
+**Generated**: {{ISO_NOW}}
+**Mode**: {{MODE}}
+**Agents spawned**: <N>
+**Injectables applied**: <list with target agent>
+**Niche flags raised (for Phase 42 niche)**: <list>
+
+## Per-agent dispatch
+
+| # | Agent | Model | Output | Status | Findings | LEADs |
+|---|-------|-------|--------|--------|----------|-------|
+
+## Coverage notes
+
+- Files in inventory: <N>
+- Files touched by ≥ 1 agent: <N>
+- Files NOT touched (orphaned): <list>
+
+(Files orphaned here will fail the driver coverage gate. If empty, the gate passes.)
+```
+
+This dispatch log is informational — the driver does not gate on it but uses it for debugging.
+
+---
 
 ## Required outputs (driver gate checks for these)
 
 - `{{SCRATCHPAD}}/analysis_*.md` (glob; ≥ 1 file required)
 
-Each file must contain at least one `FINDING |` or `LEAD |` header.
+Each file must contain at least one `FINDING |` or `LEAD |` header per the content gate.
+
+## Coverage gate
+
+The driver coverage gate parses your `claude -p` transcript to verify every in-scope file was read by some agent. If gaps are detected, the next retry will inject the specific missed file paths into a `RETRY_HINT` for this phase. Plan agent dispatches so coverage is exhaustive on the first pass.
 
 ## Retry hint (if any)
 
 {{RETRY_HINT}}
 
-When all agents have written their output files, exit cleanly. Do not run dedup; the driver invokes Phase 4a (inventory) separately.
+When all agents have written their output files and your dispatch log is written, exit cleanly. Do not run inventory or depth — the driver invokes Phase 4a separately.
