@@ -161,6 +161,12 @@ You are Recon Agent 1B: Docs + Fork Ancestry + External Programs.
 2. **Fork ancestry**: identify whether this is a fresh codebase or a fork. If forked, name the upstream (Uniswap v3, Compound v2, Aave v3, Solana program library, etc.) and the upstream version. List the diff scope — which functions/files materially changed.
 3. **External programs**: enumerate every external program / cross-program-invocation / oracle / bridge / dependency outside the audit scope. For each, record: name, version, called from <files>, called for <purpose>, assumed behavior (the assumption your contract makes — if violated, what breaks).
 4. **Augment docs-intent-map**: read the preprocessor's docs-intent-map.md. For each intent claim, mark which are LOAD-BEARING (a violation would be a security finding) vs DECORATIVE (general protocol description). Phase 5d Gate 1a will read this.
+5. **Economic context (M-27 inputs)**: extract whatever the docs / repo / on-chain readme make available. Where a value is not stated, write `UNKNOWN` rather than guess. M-27 (Realistic-Attacker Severity) reads this section, so partial data is still useful — it tells the severity router where to fall back to defaults.
+   - **expected_TVL_band**: e.g. `"$1M-$10M (early mainnet)"`, `"$50M-$200M (mature vault)"`, `"$0 (unlaunched)"`, or `UNKNOWN`. Pull from whitepaper TVL targets, related-protocol comparables cited in docs, audit-FAQ deposit caps, or peer-protocol TVL when this is a fork.
+   - **actor_profile**: who realistically holds positions large enough to be attacked. One of `whale`, `mid-tier`, `retail`, `mixed`, `UNKNOWN`. Pull from doc claims about target users, minimum-deposit caps, KYC gates, or institutional-only mode flags.
+   - **trigger_frequency**: for any cached-parameter / rate-update / oracle-refresh pattern that an attack might race against, list each trigger and its expected cadence. Format: `<trigger_name>: <cadence>, controlled by <actor>`. Examples: `"APR cut: discretionary admin, multisig"`, `"oracle push: ~1/hour, Chainlink"`, `"governance vote: weekly, token holders"`. `UNKNOWN` is acceptable.
+   - **flash_loan_surface**: yes/no/uncertain — does any composable lending market on the deployment chain expose flash loans against the protocol's accounting token(s)? Only mark `yes` if doc/recon evidence confirms availability on the target chain. This shortcuts the M-27 STEP 0 "is it flash-loanable?" gate.
+   - **meaningful_loss_threshold_hint**: optional. If the protocol or its docs state a "small loss" threshold (audit-FAQ "we don't consider <$X exploits material"), record it. Otherwise leave `UNKNOWN` — the severity router falls back to defaults (whale=$10k, mid-tier=$1k, retail=$100).
 
 ## Output
 Write to {{SCRATCHPAD}}/design_context.md with sections:
@@ -170,6 +176,15 @@ Write to {{SCRATCHPAD}}/design_context.md with sections:
   ## External programs (table: name | version | purpose | assumption)
   ## Load-bearing docs claims (list with file:line for each)
   ## Audit-specific scope (from CLAUDE.md / CONTEST_FAQ.md)
+  ## Economic context (M-27 inputs)
+    - expected_TVL_band: <value or UNKNOWN>
+    - actor_profile: <value or UNKNOWN>
+    - trigger_frequency:
+      - <trigger>: <cadence>, controlled by <actor>
+      - ... (one bullet per cached/refreshed parameter)
+    - flash_loan_surface: yes | no | uncertain
+    - meaningful_loss_threshold_hint: <$value or UNKNOWN>
+    - Source notes: <1-3 sentences citing where each value came from — doc filename, line, or "inferred from upstream fork TVL">
 
 SCOPE: write only to {{SCRATCHPAD}}/design_context.md.
 "
