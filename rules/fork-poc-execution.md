@@ -45,15 +45,33 @@ vm.startPrank(addr)          // every call below comes from addr until vm.stopPr
 ### Solana
 
 ```bash
-# Fork mainnet with program loaded
-solana-test-validator \
-  --bpf-program {PROGRAM_ID} target/deploy/{PROGRAM}.so \
+# CORRECT: clone the ACTUAL mainnet binary (--clone-upgradeable-program). DO NOT use --bpf-program <local.so> as that loads YOUR LOCAL build under the mainnet program ID — defeating the point of a fork test.
+solana-test-validator --reset \
   --url https://api.mainnet-beta.solana.com \
-  --reset
+  --clone-upgradeable-program {MAINNET_PROGRAM_ID_1} \
+  --clone-upgradeable-program {MAINNET_PROGRAM_ID_2} \
+  --ledger /tmp/<project>-fork-ledger
 
-# Run test against local validator
-cargo test --test fork_poc -- --nocapture
+# Airdrop SOL to a fresh disposable keypair (NEVER use ~/mainnet.key)
+solana-keygen new --no-bip39-passphrase --silent -o /tmp/<project>-payer.json --force
+solana airdrop 5000 $(solana-keygen pubkey /tmp/<project>-payer.json) --url http://127.0.0.1:8899
+
+# Point Anchor at the fork + disposable keypair (override BOTH so config/Anchor.toml defaults can't leak)
+ANCHOR_WALLET=/tmp/<project>-payer.json \
+ANCHOR_PROVIDER_URL=http://127.0.0.1:8899 \
+yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/<fork-poc>.ts
 ```
+
+**Important — three classes of gap a fork test catches that a local-build PoC misses** (Atomiq H-01, 2026-05-27):
+1. **Anchor field-name camelCase mismatches.** Anchor's JS coder reads struct args by IDL field name (camelCase). A typo (e.g. `prevBlocktimestamps` instead of IDL's `prevBlockTimestamps`) makes the property `undefined` → silently encoded as zeros → the production binary's hash-of-struct check fails on the zeroed field. Mocked / local-build PoCs often don't exercise the encoding path. Mainnet-fork run surfaces this as `Custom:6000`-style errors instead of a clean assertion.
+2. **`overflow-checks` profile divergence.** `cargo build --release` defaults to `overflow-checks = OFF`; production deploy profiles (Solana mainnet) typically enable them. Synthetic PoC values that don't represent realistic production state (e.g. `block_height = 1` in a relay that assumes height ≫ a pruning constant) panic in production but wrap silently in local. Choose PoC initial state to match production-scale assumptions, OR rebuild the local target with `[profile.release] overflow-checks = true` if you must use a local binary.
+3. **IDL/binary drift.** The audited source's IDL may describe an older or newer interface than the deployed binary. `declare_id!` placeholders are common in Solana repos — verify the real mainnet IDs via the project's published SDK (`@<org>/chain-solana` → `Chains.ts`; see Phase: Recon STEP 4 Agent 1B method note about mainnet program ID verification). If audited-source IDL diverges from deployed binary, document the divergence as a separate finding ("audited source differs from deployed binary") — do NOT silently accept a local `[POC-PASS]`.
+
+**Mainnet-safe by construction**:
+- We use `--skip-build --skip-deploy` (or run ts-mocha directly) — no `anchor deploy` ever fires, so even if Anchor.toml is misconfigured the worst case is a localhost-only tx.
+- `requestAirdrop` only works on test-validator — fails fast (`MethodNotFound`) if a misconfig accidentally points at mainnet.
+- The clone-upgradeable-program flag fetches binaries once at validator startup; subsequent queries are local-only.
+- **Do NOT clone state PDAs** (e.g. `--clone <pda>`). Only clone program binaries. State must be fresh so the PoC controls initialization.
 
 **Alternative**: Use LiteSVM for in-process simulation without external validator.
 
