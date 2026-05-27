@@ -99,6 +99,7 @@ Modifiers:
 - Attack requires FULLY_TRUSTED actor (governance multisig, DAO, timelock) → −1 tier (floor: Info).
 - View-function-only impact → cap at Medium.
 - On-chain-only exploit (no UI/off-chain path AND impact confined to on-chain state) → −1 tier.
+- Attack requires control of block production on an external chain (Bitcoin mining, ETH proposer slot, etc.) → cap at Low (contest) / Medium (bounty). See `rules/severity-matrix.md` for the full rationale. Distinct from M-27 (capital-dependent attacks): the prerequisite here is *capability* (mining pool / validator slot), not *capital*.
 
 The `severity_check:` field MUST record both the pre-modifier and post-modifier severity:
 
