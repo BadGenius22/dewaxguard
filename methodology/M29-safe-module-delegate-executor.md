@@ -143,6 +143,53 @@ This is a 30-minute confirmation per attack vector, comparable to the LEAD-3/4/5
 
 ---
 
+## Case study 2: Alchemist Aludel v1 (2026-05) — recipient unbound by unlock signature
+
+Found during a TVL-scanner audit batch. The v1.16 detector grep MISSED this contract because it used Geyser/Aludel naming (`unstakeAndClaim`, `getPermissionHash`, `LOCK_TYPEHASH`, `UNLOCK_TYPEHASH`) instead of Squid naming. v1.17 extends the grep to capture this family.
+
+The pattern:
+
+```solidity
+// Aludel.sol L916
+function unstakeAndClaim(
+    address vault,
+    address recipient,     // ← attacker-supplied
+    uint256 amount,
+    bytes calldata permission
+) external {
+    _validateAddress(recipient);  // sanity-only: not zero/self/system
+
+    // permission validates the unlock against UNLOCK_TYPEHASH
+    // UNLOCK_TYPEHASH = keccak256("Unlock(address delegate,address token,uint256 amount,uint256 nonce)")
+    // ← recipient is NOT in the typehash
+
+    // ... reward calculation ...
+    IERC20(rewardToken).transfer(recipient, rewardAmount);  // L1011/L1019/L1022
+}
+```
+
+The bug: the unlock signature binds `delegate + token + amount + nonce`, but `recipient` is a free parameter. Anyone observing a victim's unstake transaction in the mempool can:
+
+1. Extract the `permission` blob from the victim's pending tx
+2. Front-run with `recipient = attacker_addr` (same `permission`, same `amount`, same `vault`)
+3. The vault accepts the signed permission (typehash check passes)
+4. Rewards flow to attacker instead of the victim
+
+This is the same root cause family as Squid — **action binding failure**. The signature authorizes "unstake 1000 tokens" but the wrapper function lets the caller decide where those tokens go.
+
+Why the v1.16 detector missed it:
+- No `executeOnBehalf`, `executeBundle`, `executeBatch` in the source
+- No `swapOnBehalf`, `executeOnSafe`, `delegateBundler`
+- Used Geyser-inherited naming: `unstakeAndClaim`, `lockAndStake`, `rageQuit`, `IUniversalVault`
+
+v1.17 extends the Section B grep with: `getPermissionHash`, `calculateLockID`, `onlyValidSignature`, `UNLOCK_TYPEHASH`, `LOCK_TYPEHASH`, `IUniversalVault`, `IRageQuit.rageQuit`, `unstakeAndClaim`, `lockAndStake`, `rageQuit`.
+
+Detection rule for the recipient-unbound variant: if a public function takes a `recipient` (or `to`, `beneficiary`, `dest`) parameter AND validates a signature whose typehash does NOT include that parameter, flag as **Critical** under Step 2 hash-binding check.
+
+Severity calibration: this specific Alchemist case is **Low** under the user's filter (sub-$100K extractable per vault, requires victim to first sign+broadcast). However, the **bug class** (recipient unbound by signature) is High-to-Critical when (a) per-vault TVL > $100K, or (b) the function is called via bundler/relayer where the victim does not see the front-run.
+
+---
+
 ## Origin case study: Squid
 
 The Squid attack was a textbook auth-gate failure compounded by path-validation failure:
@@ -203,8 +250,8 @@ For EVM:
 # A. Safe Module pattern
 grep -rnE "execTransactionFromModule\b|\b0x468721a7" "$SRC" 2>/dev/null
 
-# B. Delegate-executor pattern
-grep -rnE "(executeOnBehalf|executeMetaTransaction|executeBundle|executeBatch|delegatedCall|verifyDelegate|isAuthorizedDelegate|onbehalfof|swapOnBehalf|executeOnSafe|executeFromExecutor)" "$SRC" -i 2>/dev/null
+# B. Delegate-executor pattern (v1.17: extended with Geyser/Aludel naming)
+grep -rnE "(executeOnBehalf|executeMetaTransaction|executeBundle|executeBatch|delegatedCall|verifyDelegate|isAuthorizedDelegate|onbehalfof|swapOnBehalf|executeOnSafe|executeFromExecutor|executeSameChain|delegateBundler|processDelegatedOrder|relayedExecute|getPermissionHash|calculateLockID|onlyValidSignature|UNLOCK_TYPEHASH|LOCK_TYPEHASH|IUniversalVault|IRageQuit\.rageQuit|unstakeAndClaim|lockAndStake|rageQuit)" "$SRC" -i 2>/dev/null
 
 # C. Arbitrary-target call site
 grep -rnE "(target|to)\.call\(|(target|to)\.delegatecall\(|ISwapRouter\([^)]+\)\.exactInput|IPoolManager\([^)]+\)\.swap|IUniversalRouter\([^)]+\)\.execute" "$SRC" 2>/dev/null

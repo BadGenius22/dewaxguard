@@ -1,5 +1,19 @@
 # DewaxGuard Changelog
 
+## [1.17.0] - 2026-05-28
+
+**Origin**: M-29 detector false negative during the Alchemist Aludel v1 audit (TVL-scanner batch, 2026-05-28). v1.16.0's Section B grep targeted SquidRouter naming (`executeOnBehalf`, `executeBundle`, `executeBatch`, `swapOnBehalf`, `executeOnSafe`, `delegateBundler`, ...) and missed the Geyser/Aludel family which uses inherited staking-pool naming. The Alchemist Aludel `unstakeAndClaim(address vault, address recipient, uint256 amount, bytes permission)` function was a textbook M-29 action-binding failure (signature binds `delegate+token+amount+nonce` but not `recipient`, enabling MEV signature front-running with attacker-controlled recipient), and the detector grep would NOT have flagged the contract for M-29 lens application. v1.17 closes this gap.
+
+### Changed
+
+- **`scripts/build_recon_maps.sh` Section B grep** — extended with Geyser/Aludel/staking-pool naming patterns: `getPermissionHash`, `calculateLockID`, `onlyValidSignature`, `UNLOCK_TYPEHASH`, `LOCK_TYPEHASH`, `IUniversalVault`, `IRageQuit.rageQuit`, `unstakeAndClaim`, `lockAndStake`, `rageQuit`. Captures the Ampleforth Geyser / Alchemist Aludel / Crucible NFT-vault delegate-executor family in addition to the Squid/1inch/0x router-on-behalf family. The new grep also doubles as a generic "permission-signature pattern" detector: any contract that constructs a typehash with `UNLOCK_*` / `LOCK_*` / `getPermissionHash` naming should be audited under M-29 STEP 2 (auth-gate inversion → hash binding check).
+
+- **`methodology/M29-safe-module-delegate-executor.md`** — new "Case study 2: Alchemist Aludel v1" section documenting the specific recipient-unbound-by-unlock-signature pattern. Includes (a) the vulnerable code shape with `_validateAddress(recipient)` being sanity-only, (b) the MEV signature front-running attack sequence (mempool extraction → relay with attacker recipient → vault accepts because typehash check passes), (c) the explicit detection rule: "if a public function takes a recipient/to/beneficiary/dest parameter AND validates a signature whose typehash does NOT include that parameter, flag as Critical under Step 2 hash-binding check", (d) severity calibration note explaining why the specific Alchemist instance is Low (sub-$100K per vault, victim sees front-run) but the bug class is High-to-Critical when per-vault TVL > $100K or relayer/bundler hides the front-run from the victim.
+
+### Filter alignment
+
+The extended grep does NOT loosen the user's severity filter — per-finding severity still goes through the realism-filter and matrix rules (sub-$100K extractable caps at Low). What v1.17 fixes is **detector coverage**: the M-29 lens now triggers on the Geyser/Aludel family so the methodology runs, the auth-gate inversion is applied, and the hash-binding check is mechanical. Whether a specific finding lands Critical or Low is then a separate severity-tier judgment based on per-target TVL and exploit prerequisites.
+
 ## [1.16.0] - 2026-05-28
 
 **Origin**: SquidRouter hack (2026-05, ~$3.07M DAI extracted via `SquidRouterModule.executeSameChainActions()` impersonating authorized delegates on victim Safes). The bug class is a privileged execution wrapper where (a) the auth gate on the outer bundler path did not match the inner per-Safe authorization assumption, and (b) the inner swap path validation accepted caller-supplied router + attacker-deployed pool + `amountOutMinimum=1`. Permissionless attack — no keys compromised. The existing access-control + periphery + signature-verification agents would have caught individual sub-failures, but there was no dedicated detector or methodology surfacing the combined "Safe Module / delegate-executor / arbitrary-path" attack surface as a single Critical-ceiling category.

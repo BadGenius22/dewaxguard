@@ -479,7 +479,7 @@ AUTH_SUBSTRINGS='admin|access_control|access-control|auth|authorize|authorizatio
 
             echo "## B. Delegate-executor pattern"
             echo '```'
-            B_OUT=$({ find_src -print0 2>/dev/null | xargs -0 grep -niE "(executeOnBehalf|executeMetaTransaction|executeBundle|executeBatch|delegatedCall|verifyDelegate|isAuthorizedDelegate|onbehalfof|swapOnBehalf|executeOnSafe|executeFromExecutor|executeSameChain|delegateBundler|processDelegatedOrder|relayedExecute)" 2>/dev/null || true; } | head -200)
+            B_OUT=$({ find_src -print0 2>/dev/null | xargs -0 grep -niE "(executeOnBehalf|executeMetaTransaction|executeBundle|executeBatch|delegatedCall|verifyDelegate|isAuthorizedDelegate|onbehalfof|swapOnBehalf|executeOnSafe|executeFromExecutor|executeSameChain|delegateBundler|processDelegatedOrder|relayedExecute|getPermissionHash|calculateLockID|onlyValidSignature|UNLOCK_TYPEHASH|LOCK_TYPEHASH|IUniversalVault|IRageQuit\.rageQuit|unstakeAndClaim|lockAndStake|rageQuit)" 2>/dev/null || true; } | head -200)
             echo "$B_OUT"
             [[ -n "$B_OUT" ]] && DELEGATE_HITS=$(echo "$B_OUT" | wc -l)
             echo '```'
