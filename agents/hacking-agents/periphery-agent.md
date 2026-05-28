@@ -28,3 +28,14 @@ For every public/external function in target contracts:
 - **Spoof existence detection.** Balance checks at computed addresses (EVM) / SLE existence checks on computed keylets (C++ ledger) / PDA existence via `find_program_address` (Solana) are not valid existence proofs. Exploit false positives.
 - **Brick via compute/gas/resource complexity.** Find loops in utility code whose worst-case cost bricks critical protocol functions. For C++ ledgers: find invariant-check loops that can be triggered with attacker-controlled state to explode runtime.
 - **Race provider swaps.** Exploit provider wrappers where the underlying provider is swapped while requests are still pending from the old one.
+
+## Safe Module / Delegate-Executor / Arbitrary-Path (EVM, M-29)
+
+If the recon emitted `delegate-executor-map.md` with `SAFE_MODULE_OR_DELEGATE_EXECUTOR=true` or `ARBITRARY_PATH_EXECUTION=true`, the contract is a member of the SquidRouter-class attack surface. Read `methodology/M29-safe-module-delegate-executor.md` and apply the path-validation tests (STEP 3) for every external-call site in section C of the map:
+
+- **Target allowlist check**: is the target hardcoded constant or governance-set? If it's a function argument, the attacker controls it.
+- **Selector/path allowlist check**: if the call data is opaque (caller-supplied `bytes`), the attacker calls any function. If the swap pool key is caller-supplied (`PoolKey memory key`), the attacker pre-deploys a pool with arbitrary economics.
+- **Slippage bound**: `amountOutMinimum`/`minAmountOut` must be bounded by an independent oracle. If user/executor sets it to `1`, the swap accepts any output regardless of true price. Cross-reference the `delegate-executor-map.md` section D (slippage = 0/1 red-flag combinations).
+- **Decimal verification**: caller-supplied token decimals are an attack vector. A token with `decimals() = 0` reused as `decimals = 18` under-/over-flows downstream math.
+
+Cross-class compose (auth × path): when both fail, severity is **Critical-ceiling** under any reasonable filter — single-tx, permissionless, direct theft, no admin compromise. SquidRouter (2026) is the canonical case. Confirm on-chain via `eth_simulateCallV1` with state overrides.

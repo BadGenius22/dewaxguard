@@ -447,6 +447,77 @@ AUTH_SUBSTRINGS='admin|access_control|access-control|auth|authorize|authorizatio
     esac
 } | sort -u > "$OUT/auth-critical-files.txt"
 
+# (l) delegate-executor-map (Safe Module + delegate executor + arbitrary path) -
+# Per methodology/M29-safe-module-delegate-executor.md. Top-tier yield map.
+# Emits SAFE_MODULE_OR_DELEGATE_EXECUTOR + ARBITRARY_PATH_EXECUTION flags.
+{
+    echo "# Delegate-Executor Surface Map — lang=$LANG_TARGET"
+    echo
+    echo "Per M-29. Detects three high-yield bug shapes:"
+    echo "  A. Safe Module (calls execTransactionFromModule, selector 0x468721a7)"
+    echo "  B. Delegate-executor (signature-verified on-behalf-of execution)"
+    echo "  C. Arbitrary-path call site (caller-supplied target+calldata or pool key)"
+    echo
+    echo "If A or B is non-empty → set flag SAFE_MODULE_OR_DELEGATE_EXECUTOR=true."
+    echo "If C has hits with non-immutable target → set flag ARBITRARY_PATH_EXECUTION=true."
+    echo "Both flags raise severity ceiling on findings against these functions to Critical."
+    echo
+
+    SAFE_MODULE_HITS=0
+    DELEGATE_HITS=0
+    ARBITRARY_PATH_HITS=0
+
+    case "$LANG_TARGET" in
+        evm)
+            echo "## A. Safe Module pattern"
+            echo '```'
+            A_OUT=$({ find_src -print0 2>/dev/null | xargs -0 grep -nE "execTransactionFromModule\b|\b0x468721a7\b|SafeProtocolManager\.executePlugin|execTransactionFromModuleReturnData" 2>/dev/null || true; } | head -200)
+            echo "$A_OUT"
+            [[ -n "$A_OUT" ]] && SAFE_MODULE_HITS=$(echo "$A_OUT" | wc -l)
+            echo '```'
+            echo
+
+            echo "## B. Delegate-executor pattern"
+            echo '```'
+            B_OUT=$({ find_src -print0 2>/dev/null | xargs -0 grep -niE "(executeOnBehalf|executeMetaTransaction|executeBundle|executeBatch|delegatedCall|verifyDelegate|isAuthorizedDelegate|onbehalfof|swapOnBehalf|executeOnSafe|executeFromExecutor|executeSameChain|delegateBundler|processDelegatedOrder|relayedExecute)" 2>/dev/null || true; } | head -200)
+            echo "$B_OUT"
+            [[ -n "$B_OUT" ]] && DELEGATE_HITS=$(echo "$B_OUT" | wc -l)
+            echo '```'
+            echo
+
+            echo "## C. Arbitrary-path call site"
+            echo '```'
+            C_OUT=$({ find_src -print0 2>/dev/null | xargs -0 grep -nE "\b(target|to|dex|router|swapTarget)\b\.call\(|\b(target|to)\.delegatecall\(|ISwapRouter\([^)]+\)\.(exactInput|exactOutput)|IUniversalRouter\([^)]+\)\.execute|IPoolManager\([^)]+\)\.swap|address\s+target\s*,\s*bytes\s+(memory|calldata)\s+data" 2>/dev/null || true; } | head -200)
+            echo "$C_OUT"
+            [[ -n "$C_OUT" ]] && ARBITRARY_PATH_HITS=$(echo "$C_OUT" | wc -l)
+            echo '```'
+            echo
+
+            echo "## D. Red-flag combinations (slippage = 0/1 in arbitrary-path file)"
+            echo '```'
+            { find_src -print0 2>/dev/null | xargs -0 grep -nE "amountOutMinimum\s*[=:]\s*[01][^0-9]|minAmountOut\s*[=:]\s*[01][^0-9]|minOut\s*[=:]\s*[01][^0-9]|sqrtPriceLimitX96\s*[=:]\s*0[^x0-9]" 2>/dev/null || true; } | head -100
+            echo '```'
+            ;;
+        solana|stellar|aptos|sui|cpp)
+            echo "_M-29 detector is EVM-specific. No artifact emitted for lang=$LANG_TARGET._"
+            echo "_See methodology/M29-safe-module-delegate-executor.md for cross-language equivalents._"
+            ;;
+    esac
+
+    echo
+    echo "## Flag summary (machine-readable)"
+    if [[ "$SAFE_MODULE_HITS" -gt 0 ]] || [[ "$DELEGATE_HITS" -gt 0 ]]; then
+        echo "SAFE_MODULE_OR_DELEGATE_EXECUTOR=true (safe_module=$SAFE_MODULE_HITS, delegate=$DELEGATE_HITS)"
+    else
+        echo "SAFE_MODULE_OR_DELEGATE_EXECUTOR=false"
+    fi
+    if [[ "$ARBITRARY_PATH_HITS" -gt 0 ]]; then
+        echo "ARBITRARY_PATH_EXECUTION=true (hits=$ARBITRARY_PATH_HITS)"
+    else
+        echo "ARBITRARY_PATH_EXECUTION=false"
+    fi
+} > "$OUT/delegate-executor-map.md"
+
 echo "build_recon_maps.sh done — lang=$LANG_TARGET, out=$OUT"
 echo "  artifacts:"
 ls -1 "$OUT" | sed 's/^/    /'

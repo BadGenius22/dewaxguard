@@ -158,6 +158,7 @@ Artifacts emitted under `$SCRATCHPAD`:
 - `guard-map.md`, `state-flags.md`, `integration-map.md`, `math-map.md`, `unsafe-map.md`, `logic-anomaly-map.md`, `blackhat-maps.md`, `divergence-map.md`, `invariant-extract.md`
 - `docs-intent-map.md` — consumed by Phase 5d Gate 1a (HARD)
 - `auth-critical-files.txt` — consumed by the squeezer and by every agent claiming missing-auth
+- `delegate-executor-map.md` — emits `SAFE_MODULE_OR_DELEGATE_EXECUTOR` + `ARBITRARY_PATH_EXECUTION` flags per M-29 (Safe Module / SquidRouter-class). When either flag is true, `access-control-agent`, `periphery-agent`, and `multi-step-operation-safety` MUST reference M-29 and treat findings on those functions as Critical-ceiling. EVM-only.
 - `core-minified.rs` — body-collapsed source bundle with `[full-bodies]` / `[collapsed]` tags per file
 
 ### Phase 1.1 — Recon agents (4 in parallel)

@@ -30,6 +30,8 @@ Apply the methodology below to whichever language is in scope, substituting the 
 
 **Abuse delegatecall/proxy** (EVM) / **abuse CPI with wrong signer** (Solana) / **abuse capability forgery** (Move) / **abuse wrapper account resolution** (C++ ledger). Substitute the language.
 
+**Safe Module / Delegate-Executor / Arbitrary-Path** (EVM, M-29). If the recon emitted `delegate-executor-map.md` with `SAFE_MODULE_OR_DELEGATE_EXECUTOR=true` or `ARBITRARY_PATH_EXECUTION=true`, you MUST read `methodology/M29-safe-module-delegate-executor.md` and apply STEPS 1-5 in full. Safe Modules and delegate executors map directly to "Critical / direct theft / no admin compromise" — historical comparables: SquidRouter ($3.07M, 2026), Wintermute V1 (2022), Multichain (2023). Specific checks: (a) auth-gate inversion (hash binding, nonce scope, EIP-1271 callee, outer-wrapper auth, cross-tier replay); (b) path validation (target allowlist, selector allowlist, pool key validation, slippage bound, decimal verification); (c) bundler-specific outer-auth + order-to-order sequencing. Any function in the recon map's section A or B is **Critical-ceiling** if its auth gate AND its path validation both fail. Use `eth_simulateCallV1` with state overrides to confirm on-chain.
+
 ## Trust boundary analysis
 
 When the protocol uses signature verification or wrapped-execution flows:

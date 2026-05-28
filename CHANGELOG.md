@@ -1,5 +1,33 @@
 # DewaxGuard Changelog
 
+## [1.16.0] - 2026-05-28
+
+**Origin**: SquidRouter hack (2026-05, ~$3.07M DAI extracted via `SquidRouterModule.executeSameChainActions()` impersonating authorized delegates on victim Safes). The bug class is a privileged execution wrapper where (a) the auth gate on the outer bundler path did not match the inner per-Safe authorization assumption, and (b) the inner swap path validation accepted caller-supplied router + attacker-deployed pool + `amountOutMinimum=1`. Permissionless attack — no keys compromised. The existing access-control + periphery + signature-verification agents would have caught individual sub-failures, but there was no dedicated detector or methodology surfacing the combined "Safe Module / delegate-executor / arbitrary-path" attack surface as a single Critical-ceiling category.
+
+### Added
+
+- **`methodology/M29-safe-module-delegate-executor.md`** (~250 lines) — full audit methodology for Safe Module + delegate-executor + arbitrary-path patterns. Six STEPs: (1) mechanical enumeration of every `external/public` function that can result in `safe.call/delegatecall` or `swapRouter(target).exactInput(...)` with caller-supplied target; (2) auth-gate inversion test (hash binding, nonce scope, EIP-1271 callee, outer-wrapper auth, cross-tier replay); (3) path-validation test (target allowlist, selector allowlist, pool key validation, slippage bound, decimal verification); (4) cross-class compose (auth × path → severity tier); (5) bundler-specific outer-auth + order-to-order sequencing; (6) on-chain `eth_simulateCallV1` confirmation with state overrides. Origin case study: SquidRouter post-mortem with the specific three-check failure pattern. Historical comparables: Wintermute V1 (2022), Multichain (2023).
+
+- **`scripts/build_recon_maps.sh` extension** — new `(l) delegate-executor-map` block for EVM language. Emits `delegate-executor-map.md` under `$OUT` with sections A (Safe Module hits via `execTransactionFromModule` + selector `0x468721a7`), B (delegate-executor hits — `executeOnBehalf` / `executeMetaTransaction` / `executeBundle` / `swapOnBehalf` / `executeOnSafe` / `executeSameChain` / `delegateBundler` family), C (arbitrary-path call sites — `target.call/delegatecall`, `ISwapRouter(addr).exactInput`, `IPoolManager(addr).swap`, `IUniversalRouter(addr).execute`, `address target, bytes data` signature patterns), D (red-flag combos: `amountOutMinimum/minAmountOut/minOut = 0|1`, `sqrtPriceLimitX96 = 0`). Machine-readable flag summary: `SAFE_MODULE_OR_DELEGATE_EXECUTOR=true/false` and `ARBITRARY_PATH_EXECUTION=true/false`. EVM-only — Solana/Stellar/Move/CPP emit a `_M-29 detector is EVM-specific_` placeholder.
+
+### Changed
+
+- **`agents/hacking-agents/access-control-agent.md`** — new "Safe Module / Delegate-Executor / Arbitrary-Path" attack-plan section. When `SAFE_MODULE_OR_DELEGATE_EXECUTOR=true` or `ARBITRARY_PATH_EXECUTION=true` flags fire from `delegate-executor-map.md`, the agent MUST read M-29 and apply STEPS 1-5 in full. Findings in the map's sections A or B with auth-gate AND path-validation both broken are **Critical-ceiling** under the strict "no admin compromise / direct theft" filter. Use `eth_simulateCallV1` with state overrides to confirm on-chain (analog to the Solana `simulateTransaction` workflow from Vault Unstake Pool audit).
+
+- **`agents/hacking-agents/periphery-agent.md`** — new M-29 section covering path-validation tests (target allowlist, selector/path allowlist, slippage bound, decimal verification) for every external-call site in section C of the recon map. Cross-class compose: when both auth and path fail, severity is Critical-ceiling.
+
+- **`SKILL.md`** — `delegate-executor-map.md` added to the recon artifact list with consumer rules.
+
+- **`methodology/INDEX.md`** — M-29 entry added with full purpose + trigger + STEPs summary. The "Safe Module / Delegate-Executor" category becomes the second EVM-specific methodology (after M-23 stays general). M-28 slot reserved for the deferred EA Finance "Solvency-Failure Severity Framework" proposal (`improve/proposals/2026-05-27-ea-finance-solvency-postmortem.md`).
+
+### Verified
+
+- Synthetic Squid-shape contract (66-byte test file with `executeSameChainActions(bytes data, address target)`, `swapOnBehalf(address router)`, and an inline `ISafe(safe).execTransactionFromModule(...)` call) triggers all three detector categories (A, B, C) and both machine-readable flags. Recon script smoke-test passed end-to-end.
+
+### Filter alignment
+
+M-29 maps directly to the user's strict filter ("Critical / direct theft / no admin compromise / high likelihood"). SquidRouter, Wintermute V1, and Multichain all match this profile — permissionless attacks on protocol code, no key compromise, single-tx extraction. The new detector ensures these patterns are surfaced at recon time with Critical-ceiling treatment, not buried implicitly in the general access-control sweep.
+
 ## [1.14.0] - 2026-05-19
 
 **Origin**: Plamen v2.0.0 introduced an L1 infrastructure audit mode (`/plamen l1`) for Go/Rust blockchain node-client auditing — consensus engines, p2p networking, mempool, RPC, validator lifecycle. dewaxguard v1.14.0 ports the L1 mode as an additive layer on top of the v1.13.x driver: opt in via `--l1` and the driver swaps in L1-specific phases and agents.
