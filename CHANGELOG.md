@@ -1,5 +1,15 @@
 # DewaxGuard Changelog
 
+## [1.18.1] - 2026-06-04
+
+**Origin**: Wiring the M-30 recon trigger so the signature-binding/replay lens auto-fires — v1.18.0 added the methodology but left its trigger as "proposed". Raised while reviewing EVM applicability: M-30 is the most EVM-relevant of the v1.18.0 additions (EVM is signature-auth-heavy — EIP-712 / permit / Permit2 / EIP-3009 / EIP-1271 / ERC-4337).
+
+### Added
+- **`scripts/build_recon_maps.sh` section (m) signature-binding-map** — emits `signature-binding-map.md` with machine-readable `SIGNATURE_BOUND_AUTH` + `CROSS_CHAIN_REPLAY_SMELL` flags. Detects (A) signature-verification call sites, (B) signed-payload/typehash definitions, (C) domain-separation & replay-guard evidence, (D) the recipient-unbound-by-signature red flag. EVM gets rich coverage (`ecrecover` / `ECDSA` / `SignatureChecker` / EIP-712 / permit / Permit2 / `UserOperation`); Solana/Stellar/Aptos/Sui/C++ get a generic verify-primitive grep (ed25519 / secp256k1 / BatchSigner / multisign) — **cross-language, unlike the EVM-only M-29 detector**. `CROSS_CHAIN_REPLAY_SMELL=true` fires when verify sites exist but no chainId/nonce/domain-tag evidence is found.
+
+### Changed
+- **`methodology/M30-signature-binding-replay.md`** — trigger line updated from "proposed" to the live `build_recon_maps.sh` flag.
+
 ## [1.18.0] - 2026-06-04
 
 **Origin**: Post-audit improvement protocol run on Sherlock 1260 (XRPL April 2026) against the final preliminary-reward gist. The audit shipped 5 valid findings (~$3,047, 3/5 reward pools) but **0 of the contest's 9 High/Critical families**. The RC-AGENT exclusion test classified the 9 H/C misses as 3× RC-METHOD, 2× RC-DEPTH, 4× RC-AGENT. The 4 RC-AGENT misses (F60 $24k-solo BookStep fee-account, F15 AMMClawback auth, F39 book_offers, F82 sponsored cross-currency) were analyzed-but-mis-reasoned and produce **no** rule change per the anti-bloat / RC-AGENT-presumption gate. The 5 fixable misses produce 1 new template + 3 targeted extensions.

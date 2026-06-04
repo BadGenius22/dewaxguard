@@ -518,6 +518,90 @@ AUTH_SUBSTRINGS='admin|access_control|access-control|auth|authorize|authorizatio
     fi
 } > "$OUT/delegate-executor-map.md"
 
+# (m) signature-binding-map (signature replay / domain separation) -------------
+# Per methodology/M30-signature-binding-replay.md. Emits SIGNATURE_BOUND_AUTH
+# + CROSS_CHAIN_REPLAY_SMELL flags. Cross-language (unlike the EVM-only M-29).
+{
+    echo "# Signature-Binding Surface Map — lang=$LANG_TARGET"
+    echo
+    echo "Per M-30. Detects signature/auth artifacts whose preimage may NOT bind the"
+    echo "context they authorize (signer / signing-for / envelope / chain / nonce / expiry)."
+    echo "  A. signature-verification call sites"
+    echo "  B. signed-payload / typehash definitions"
+    echo "  C. domain-separation & replay-guard evidence (chainId / nonce / deadline)"
+    echo
+    echo "If A or B non-empty → SIGNATURE_BOUND_AUTH=true (apply the M-30 binding table)."
+    echo "If verify sites exist but C shows no chainId/nonce/domain-tag evidence →"
+    echo "  CROSS_CHAIN_REPLAY_SMELL=true (confirm the NEW envelope binds chainId + nonce)."
+    echo
+
+    SIG_VERIFY_HITS=0
+    SIG_PAYLOAD_HITS=0
+    SIG_GUARD_HITS=0
+
+    case "$LANG_TARGET" in
+        evm)
+            echo "## A. Signature-verification call sites"
+            echo '```'
+            A_OUT=$({ find_src -print0 2>/dev/null | xargs -0 grep -nE "ecrecover\(|ECDSA\.(recover|tryRecover)|SignatureChecker|isValidSignature(Now)?\(|recoverSigner|_verif(y|ies)Signature|checkSignature" 2>/dev/null || true; } | head -200)
+            echo "$A_OUT"
+            [[ -n "$A_OUT" ]] && SIG_VERIFY_HITS=$(echo "$A_OUT" | wc -l)
+            echo '```'
+            echo
+
+            echo "## B. Signed-payload / typehash definitions (EIP-712 / permit / 4337 / 3009)"
+            echo '```'
+            B_OUT=$({ find_src -print0 2>/dev/null | xargs -0 grep -niE "_TYPEHASH|_hashTypedData|EIP712|permit\(|PERMIT_TYPEHASH|transferWithAuthorization|receiveWithAuthorization|UserOperation|PackedUserOperation|Permit2|ISignatureTransfer|DOMAIN_SEPARATOR" 2>/dev/null || true; } | head -200)
+            echo "$B_OUT"
+            [[ -n "$B_OUT" ]] && SIG_PAYLOAD_HITS=$(echo "$B_OUT" | wc -l)
+            echo '```'
+            echo
+
+            echo "## C. Domain-separation & replay-guard evidence"
+            echo '```'
+            C_OUT=$({ find_src -print0 2>/dev/null | xargs -0 grep -nE "block\.chainid|chainId|_domainSeparatorV4|nonces?\s*\[|_useNonce|_useUnorderedNonce|deadline|expir(y|es|ation)" 2>/dev/null || true; } | head -200)
+            echo "$C_OUT"
+            [[ -n "$C_OUT" ]] && SIG_GUARD_HITS=$(echo "$C_OUT" | wc -l)
+            echo '```'
+            echo
+
+            echo "## D. Red flag — signed-for/value param that the typehash may not bind"
+            echo '```'
+            { find_src -print0 2>/dev/null | xargs -0 grep -nE "function\s+\w+\([^)]*address\s+(recipient|to|beneficiary|receiver|dest|owner)[^)]*bytes\s+(memory|calldata)\s+(signature|sig|permission)" 2>/dev/null || true; } | head -100
+            echo '```'
+            ;;
+        solana|stellar|aptos|sui|cpp)
+            echo "## A. Signature-verification call sites (non-EVM)"
+            echo '```'
+            A_OUT=$({ find_src -print0 2>/dev/null | xargs -0 grep -niE "ed25519_(verify|program|instruction)|secp256k1_recover|sol_secp256k1_recover|verify_signature|verify_ecdsa|ed25519::verify|BatchSigner|\bSigners\b|multisign|checkSign|threshold_sig" 2>/dev/null || true; } | head -200)
+            echo "$A_OUT"
+            [[ -n "$A_OUT" ]] && SIG_VERIFY_HITS=$(echo "$A_OUT" | wc -l)
+            echo '```'
+            echo
+            echo "## C. Replay-guard evidence (chain-id / nonce / sequence / domain tag)"
+            echo '```'
+            C_OUT=$({ find_src -print0 2>/dev/null | xargs -0 grep -niE "chain_?id|nonce|sequence\b|SigningPrefix|HashPrefix|domain.?separat|recent_blockhash|sign_doc|account_number" 2>/dev/null || true; } | head -200)
+            echo "$C_OUT"
+            [[ -n "$C_OUT" ]] && SIG_GUARD_HITS=$(echo "$C_OUT" | wc -l)
+            echo '```'
+            ;;
+    esac
+
+    echo
+    echo "## Flag summary (machine-readable)"
+    if [[ "$SIG_VERIFY_HITS" -gt 0 ]] || [[ "$SIG_PAYLOAD_HITS" -gt 0 ]]; then
+        echo "SIGNATURE_BOUND_AUTH=true (verify=$SIG_VERIFY_HITS, payload=$SIG_PAYLOAD_HITS)"
+        if [[ "$SIG_GUARD_HITS" -eq 0 ]]; then
+            echo "CROSS_CHAIN_REPLAY_SMELL=true (verify sites present, no chainId/nonce/domain-tag evidence found)"
+        else
+            echo "CROSS_CHAIN_REPLAY_SMELL=false (replay-guard evidence: $SIG_GUARD_HITS hits — confirm it covers the NEW envelope)"
+        fi
+    else
+        echo "SIGNATURE_BOUND_AUTH=false"
+        echo "CROSS_CHAIN_REPLAY_SMELL=false"
+    fi
+} > "$OUT/signature-binding-map.md"
+
 echo "build_recon_maps.sh done — lang=$LANG_TARGET, out=$OUT"
 echo "  artifacts:"
 ls -1 "$OUT" | sed 's/^/    /'

@@ -16,7 +16,7 @@ Invoke when recon detects ANY of:
 - `ecrecover` / `ed25519_verify` / `secp256k1_verify` / `checkSign` / EIP-1271 `isValidSignature`.
 - Any "signature presented by a party other than the signer" flow (relayer, bundler, sponsor, delegate submits on behalf).
 
-`build_recon_maps.sh` flag (proposed): `SIGNATURE_BOUND_AUTH=true` when the above patterns are present (any language).
+`build_recon_maps.sh` section (m) emits `signature-binding-map.md` with machine-readable `SIGNATURE_BOUND_AUTH=true` + `CROSS_CHAIN_REPLAY_SMELL` diagnostic when the above patterns are present. EVM gets rich coverage (ecrecover/ECDSA/SignatureChecker/EIP-712/permit/Permit2/EIP-3009/ERC-4337); Solana/Stellar/Aptos/Sui/C++ get a generic verify-primitive grep (ed25519/secp256k1/BatchSigner/multisign) — cross-language, unlike the EVM-only M-29 detector.
 
 ---
 
