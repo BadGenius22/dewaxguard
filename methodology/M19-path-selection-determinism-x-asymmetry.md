@@ -45,6 +45,7 @@ Apply M-19 to any codebase that:
 | **E8: Frozen / paused / locked state mid-route** | Can attacker freeze a competitor's offer mid-route? Does path-finder ignore frozen offers? Does execution re-check at consumption? | Lock-state re-validation at consumption is the safe pattern. |
 | **E9: Stale parameter retroactive effect** | Mutable economic parameter (transfer fee, swap fee, oracle price) consumed by cross-ledger-persistent SLEs (escrow, check, offer). Lock-in at create OR live-read at consume? Asymmetric handling → audit smell. | Escrow locks; OFFER/CHECK live-read = asymmetric. |
 | **E10: Convergence iteration count differs by asset type** | Multi-hop iterative refinement: does an exact-arithmetic asset converge in same iterations as a decimal-arithmetic asset? Does any asset type cause unbounded loop? | Hardcoded asset-agnostic iteration cap is the safe pattern. |
+| **E11: Fee / burn / transfer-rate rounds to zero at small amounts (value escape)** | For every fee / burn / transfer-rate computation, substitute small-but-nonzero amounts and the round-to-zero boundary. If the fee or burn rounds to 0 while value still moves (offer crosses, payment delivers, supply transfers), the issuer/protocol silently loses fee revenue or supply accounting drifts. Round fees UP (or gate the round-to-zero boundary) is the safe pattern. | **Sherlock 1260 F16** (High): MPT CLOB offer crossing rounds transfer-fee burn down to zero. EVM: fee-on-transfer rounding to 0 for dust; ERC-4626 share rounding. |
 
 ---
 

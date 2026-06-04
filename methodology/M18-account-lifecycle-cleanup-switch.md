@@ -12,6 +12,7 @@
 
 Apply this methodology whenever the protocol has:
 - An account/contract closure operation: `AccountDelete` (XRPL), `selfdestruct` (EVM, deprecated), `close` instruction (Solana), `object::delete` (Sui), `move_from` (Aptos), `keeper.Delete()` (Cosmos).
+- **ANY object-level teardown / delete operation — not just account-level closure.** Enumerate EVERY destroyable object's teardown op and run the matrix per op: AMM delete, Vault delete, LoanBroker delete, pool/market close, token-issuance destroy, position close. *(Sherlock 1260 post-mortem: M-18 was applied to `AccountDelete` only and missed **F13** — High, 19 finders — attacker blocks AMM/Vault/LoanBroker teardown and forces repeated deletion failures. The teardown-griefing shape lives on every deletable object, not just accounts.)*
 - The closure is gated on a "no obligations" / "no held state" check.
 - New state-object types are introduced (or extended) in the audit delta.
 
@@ -22,6 +23,8 @@ The yield correlates with: how many NEW state-object types were added; how unila
 ## Phase 0 — Inventory (mandatory pre-read)
 
 Before writing any matrix cells, build these inventories:
+
+0. **Teardown-operation roster (mandatory first)** — list EVERY object-teardown / close / delete operation in scope, not just the account-level one. For each (AccountDelete, AMM delete, Vault delete, LoanBroker delete, IssuanceDestroy, position/market close), run Phases 0–2 of this matrix. The **shared-object grief variant** (Sherlock 1260 **F13**): an attacker plants state on a SHARED / pooled object (AMM / Vault / Broker) that the OWNER must tear down — the owner can never complete teardown because the planted state is a permanent obligation. This is distinct from account-level AccountDelete and is the higher-yield variant on pooled objects.
 
 1. **The closure operation file** — read end-to-end. Identify:
    - Pre-conditions (who is allowed to close; what blocks closing).

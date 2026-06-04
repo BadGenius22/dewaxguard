@@ -181,6 +181,22 @@ See Phase 0. This is a first-filter optimization.
 - **Solana**: `initialize` + `close` instruction pairs should not share a context hash.
 - **Move**: `lock` + `unlock` module functions should have distinct context seeds.
 
+### 2.7 Adversarial forgery construction (soundness, not just composition)
+
+**Principle**: Phases 0–2.6 audit how primitives COMPOSE and whether they are REACHABLE. They do not, by themselves, attempt to BREAK soundness. A composition can be well-formed and still unsound if a malicious prover can produce a transcript the verifier accepts while the claimed relation is false. **Composition-correct ≠ forgery-resistant.**
+
+**Origin (gap)**: Sherlock 1260 XRPL post-mortem. M-16's Domain-15 run concluded the mpt-crypto bundle was "sound modulo known completeness issues" and submitted 0 Medium+. The contest's single largest confidential-MPT finding was **F30** (Critical, 15 finders): *a malicious confidential MPT holder drains shared confidential backing from other holders via forged proofs.* The composition matrix had no explicit "construct the forgery" step, so the soundness break was never attempted.
+
+**Mandatory method** — for each verifier, ASSUME a malicious prover and try to build an accepting-but-false transcript:
+
+1. **Conservation relation**: state the value-conservation / ownership invariant the proof enforces (e.g. "outputs sum to inputs", "spender owns the spent commitment", "no new supply minted") as an equation over the public commitments.
+2. **Shared / pooled backing** (the **F30** shape): if multiple users' confidential balances share a common backing pool, issuance aggregate, or outstanding-amount accumulator, check whether one user's proof can satisfy the verifier while moving value belonging to the SHARED pool or to ANOTHER holder. Forged-proof-drains-shared-backing is the highest-severity ZK class — test it explicitly, do not infer soundness from composition correctness.
+3. **Witness independence**: can the prover choose a witness (blinding, challenge precursor, point) that makes a binding check pass vacuously? (point-at-infinity, zero response, identity commitment, equal-and-opposite blindings).
+4. **Verifier-derived value reuse**: where the verifier DERIVES a value (`pc_rem = PC - amount*G`) and feeds it downstream, can the prover pick inputs so the derived value collides with an unrelated valid commitment?
+5. **Construct the PoC**: if any of 2–4 yields a candidate, build the forged proof with the real library (`mpt_utility`-equivalent) and show the verifier returns success on a relation-violating input. A forgery the real verifier accepts is `[POC-PASS]` ground truth.
+
+**Output**: for every verifier, a row — `relation | forgery attempt | verifier verdict | conservation broken? (Y/N)`. A "sound" verdict REQUIRES the forgery attempt to be tried and to fail, not merely "composition looks correct."
+
 ---
 
 ## Phase 3 — 8-Question Cell Probe Template

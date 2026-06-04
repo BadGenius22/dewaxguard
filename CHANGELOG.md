@@ -1,5 +1,22 @@
 # DewaxGuard Changelog
 
+## [1.18.0] - 2026-06-04
+
+**Origin**: Post-audit improvement protocol run on Sherlock 1260 (XRPL April 2026) against the final preliminary-reward gist. The audit shipped 5 valid findings (~$3,047, 3/5 reward pools) but **0 of the contest's 9 High/Critical families**. The RC-AGENT exclusion test classified the 9 H/C misses as 3× RC-METHOD, 2× RC-DEPTH, 4× RC-AGENT. The 4 RC-AGENT misses (F60 $24k-solo BookStep fee-account, F15 AMMClawback auth, F39 book_offers, F82 sponsored cross-currency) were analyzed-but-mis-reasoned and produce **no** rule change per the anti-bloat / RC-AGENT-presumption gate. The 5 fixable misses produce 1 new template + 3 targeted extensions.
+
+### Added
+- **`methodology/M30-signature-binding-replay.md`** (~90 lines) — Signature-Binding / Replay / Domain-Separation audit. New attack class, zero prior coverage. Binding-table method (signer / signing-for account / envelope / chain / tx-type / nonce / expiry / value-params) + bearer-token test (F4 shape) + signing-for test (F3 shape). Cross-language (EVM EIP-712/permit/Safe, Solana ed25519 sysvar, XRPL BatchSigner/multisign, Move/Cosmos BCS/SignDoc). General complement to the EVM-specific M-29. Closes the gap that missed **F4** (Critical, 13 finders) and **F3** (High, 9 finders).
+
+### Changed
+- **`methodology/M16-zk-proof-bundle-composition.md`** — added **Phase 2.7 Adversarial Forgery Construction**. M-16 previously audited composition + reachability and could conclude "sound modulo completeness" without ever attempting a soundness break; the Domain-15 run did exactly that and missed **F30** (Critical, 15 finders — forged proof drains shared confidential backing). New mandatory step: assume a malicious prover, state the conservation relation, and specifically test the shared/pooled-backing drain before declaring soundness. Composition-correct ≠ forgery-resistant.
+- **`methodology/M18-account-lifecycle-cleanup-switch.md`** — broadened scope from account-level `AccountDelete` to **ALL object-teardown ops** (AMM/Vault/LoanBroker delete, IssuanceDestroy, market/position close) and added the **shared-object grief variant** (attacker plants a permanent obligation on a pooled object the owner must tear down). Was AccountDelete-centric and missed **F13** (High, 19 finders).
+- **`methodology/M19-path-selection-determinism-x-asymmetry.md`** — added economic-asymmetry dimension **E11 fee/burn/transfer-rate rounds to zero at small amounts (value escape)**. Missed **F16** (High — MPT CLOB offer crossing rounds transfer-fee burn to zero).
+- **`methodology/INDEX.md`** — registered M-30; added post-mortem-extensions note for M-16/M-18/M-19.
+- **`LEARNED_INDEX.md`** — appended the Sherlock 1260 post-mortem entry (5 valid / 0 H-C recall; RC distribution; meta-root-cause RC-CONTEXT domain mismatch: smart-contract-oriented vector libraries vs C++ consensus node + ZK crypto).
+
+### Not changed (anti-bloat / RC-AGENT presumption)
+- F60 (BookStep wrong-account fee — $24k solo find, deep-read across 76 files), F15 (AMMClawback authorization — 43 files), F39 (book_offers — 10 files), F82 (sponsored cross-currency). All in heavily-analyzed code → RC-AGENT reasoning-depth misses, not methodology gaps. No rule added — adding rules for reasoning misses is bloat without recall gain.
+
 ## [1.17.0] - 2026-05-28
 
 **Origin**: M-29 detector false negative during the Alchemist Aludel v1 audit (TVL-scanner batch, 2026-05-28). v1.16.0's Section B grep targeted SquidRouter naming (`executeOnBehalf`, `executeBundle`, `executeBatch`, `swapOnBehalf`, `executeOnSafe`, `delegateBundler`, ...) and missed the Geyser/Aludel family which uses inherited staking-pool naming. The Alchemist Aludel `unstakeAndClaim(address vault, address recipient, uint256 amount, bytes permission)` function was a textbook M-29 action-binding failure (signature binds `delegate+token+amount+nonce` but not `recipient`, enabling MEV signature front-running with attacker-controlled recipient), and the detector grep would NOT have flagged the contract for M-29 lens application. v1.17 closes this gap.
