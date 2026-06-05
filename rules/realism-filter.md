@@ -17,6 +17,7 @@ Every finding MUST be tagged with one of:
 | `design-choice` | Behavior is documented as intentional in protocol docs, README, or sponsor clarifications (covered by `docs-intent-map.md`) | **REJECT** — do not include in report |
 | `unreachable-precondition` | Trigger requires a state combination that cannot occur in any realistic deployment | **REJECT** unless reachability is proven |
 | `semi-trusted-role` | Trigger is a semi-trusted actor (operator, keeper, oracle relayer) acting within stated trust assumption | **−1 severity tier** (per severity-matrix.md downgrade modifier) |
+| `compromised-key` | Exploit chain's precondition includes a leaked / phished / compromised private key (victim user EOA, admin, or operator) | **REJECT** — auto-invalidator on virtually every bug-bounty program; surface as Informational at most, no PoC / bug-validator spend |
 
 ---
 
@@ -25,6 +26,12 @@ Every finding MUST be tagged with one of:
 For each candidate finding, walk in order:
 
 ```
+0. Does the exploit chain REQUIRE a compromised / leaked / phished private key
+   (victim user EOA, admin, or operator) as a precondition?
+   YES → tag = compromised-key → REJECT (Informational at most). Auto-invalidator on
+         virtually every bug-bounty program; do NOT spend a PoC / bug-validator pass.
+   NO  → continue
+
 1. Does the docs-intent-map (rules/docs-intent-map.md) mark this behavior as
    "by design" / "intentional" / "accepted trade-off" / "out of scope" / "known limitation"?
    YES → tag = design-choice → REJECT, write to ADDITIONAL_LEADS with reason
@@ -92,7 +99,7 @@ Every finding written by an agent MUST include:
 ```markdown
 ## Finding [{PREFIX}-N]: Title
 ...
-**Realism Filter**: permissionless | admin-trust | design-choice | unreachable-precondition | semi-trusted-role
+**Realism Filter**: permissionless | admin-trust | design-choice | unreachable-precondition | semi-trusted-role | compromised-key
 **Filter Reason**: [1-line explanation of why this tag applies]
 **Trigger Actor**: [specific role or "any user"]
 ...
@@ -109,6 +116,7 @@ Phase 5d (bug validator) MUST:
 2. Park any finding with `Realism Filter: admin-trust` to ADDITIONAL_LEADS unless platform allows
 3. Apply -1 severity tier for `Realism Filter: semi-trusted-role` (floor: Informational)
 4. Reject any finding with `Realism Filter: unreachable-precondition` unless reachability is proven via code path
+5. Reject any finding with `Realism Filter: compromised-key` (out-of-scope on virtually every program; surface Informational at most, no PoC / bug-validator spend)
 
 This filter runs BEFORE the severity-decision-tree (`rules/severity-decision-tree.md`). The decision tree assumes the filter has already pruned non-permissionless findings.
 

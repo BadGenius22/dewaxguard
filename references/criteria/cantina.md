@@ -47,6 +47,7 @@ Cantina uses an Impact x Likelihood matrix to determine severity:
 | AI-8 | High or Medium without PoC (for researchers with reputation score <80) | INVALID — PoC mandatory |
 | AI-9 | PoC that doesn't compile or doesn't demonstrate the impact | INVALID |
 | AI-10 | Suggested fix goes against the protocol's design philosophy | Informational at most |
+| AI-11 | Requires a compromised / leaked / phished private key (user, admin, or operator) | INVALID — out-of-scope |
 
 ---
 

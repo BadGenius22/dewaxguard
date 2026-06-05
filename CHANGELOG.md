@@ -1,5 +1,16 @@
 # DewaxGuard Changelog
 
+## [1.19.1] - 2026-06-05
+
+**Origin**: User triage directive during the Polymarket CTF Exchange v2 bounty review. Finding M-02 (self-pause kill-switch keyed to the EOA via `pauseUser()` but validated against `order.maker`, so it is inert for POLY_PROXY/POLY_GNOSIS_SAFE makers) is real and has a passing Polygon mainnet-fork PoC (a live operator `matchOrders` settles the paused proxy user's order), but its entire attack path is gated on the victim's own signer key being compromised. That class is an out-of-scope auto-invalidator on virtually every bug-bounty program, yet `references/criteria/cantina.md` had no such rule and the realism filter had no tag for it — so the pipeline could waste a verification / bug-validator pass before concluding "invalid". This closes the gap as a discovery-time filter so the class is rejected up front, no validator pass needed.
+
+### Added
+- **`rules/realism-filter.md` — new filter value `compromised-key`** (REJECT). Any exploit chain whose precondition includes a leaked / phished / compromised private key (victim user EOA, admin, or operator) is rejected at discovery (Phase 5d, before the severity-decision-tree), surfaced as Informational at most, with no PoC / bug-validator spend. Wired into the Filter Values table, the decision tree (new step 0, runs first), the output-format enum, and the mechanical-enforcement list (new rule 5). Holds even when the bug is a safety feature *designed* for the post-compromise scenario (e.g. a mis-keyed self-pause kill-switch).
+- **`references/criteria/cantina.md` — new invalidator `AI-11`**: "Requires a compromised / leaked / phished private key (user, admin, or operator) → INVALID / out-of-scope." Brings Cantina in line with `c4-bounty.md` (AI-2), `immunefi.md`, and `c4-competitive.md` (AI-13), which already encode this exclusion.
+
+### Changed
+- **`VERSION`** → 1.19.1.
+
 ## [1.19.0] - 2026-06-05
 
 **Origin**: Upstream sync with solidity-auditor v3 (pashov/skills `c9ce8cf`, "attacker-framing 12-agent rewrite", 2026-06-04). dewaxguard's `agents/hacking-agents/` is derived from solidity-auditor's hacking agents; v3's improvements were ported in, adapted for dewaxguard's multi-language + pipe-format-parser pipeline. Two integration decisions taken by the maintainer: (1) **roster = add-5-gated-by-mode** — keep vector-scan (dewaxguard's recon `blackhat-maps`, `parse_findings.py`, self-calibration, and M-18/M-21 depend on it; v3 dropped it) and spawn the 5 new attacker-framing agents in **thorough mode only**, so thorough = 8 + 5 = 13 (not v3's 12). (2) **mental tools = ship-content-light-touch** — port senior-auditor-sop + a shared-rules "Mental tools" reference WITHOUT orchestrator marker-grep enforcement (dewaxguard already has a Nemesis-Feynman phase) and WITHOUT disturbing the `FINDING |` pipe format consumed by `scripts/parse_findings.py`.
