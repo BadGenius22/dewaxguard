@@ -1,6 +1,6 @@
 ---
 name: dewaxguard
-description: "Multi-language smart contract security auditor with 8 hacking agents, Nemesis cross-feed, mainnet fork PoC verification, and platform-specific bug validation. Supports EVM/Solidity, Solana/Rust, Stellar/Soroban, Aptos/Move, Sui/Move, C/C++. Platforms: Code4rena, Sherlock, Cantina, Immunefi."
+description: "Multi-language smart contract security auditor with 8 core hacking agents (+5 attacker-framing agents in thorough mode), Nemesis cross-feed, mainnet fork PoC verification, and platform-specific bug validation. Supports EVM/Solidity, Solana/Rust, Stellar/Soroban, Aptos/Move, Sui/Move, C/C++. Platforms: Code4rena, Sherlock, Cantina, Immunefi."
 user-invocable: true
 argument-hint: "[light|core|thorough] [path] [options]"
 allowed-tools: Bash(*) Read(*) Write(*) Grep(*) Glob(*) Agent(*)
@@ -68,7 +68,7 @@ If any check fails, RE-READ the missing file. Do not proceed.
 ```
 
 **v1.0.0** — Multi-language smart contract security auditor combining three methodologies:
-- **8 Specialized Hacking Agents** (breadth coverage)
+- **8 Specialized Hacking Agents** (breadth coverage) **+ 5 attacker-framing agents in thorough mode** (asymmetry, boundary, flow-gap, numerical-gap, trust-gap — v1.19.0)
 - **Nemesis Iterative Cross-Feed** (deep business logic + state inconsistency)
 - **Language-Specific Low-Level + Runtime Analysis** (what other auditors miss)
 - **Mainnet Fork PoC Verification** (mechanical proof on real contracts)
@@ -89,7 +89,7 @@ If any check fails, RE-READ the missing file. Do not proceed.
 |------|--------|----------|
 | **Light** | ~15 (all Sonnet) | Recon → Breadth(4) → Depth(4) → Chain → Verify → Report |
 | **Core** | ~30-40 | Recon → Breadth(8) → Inventory → Depth(6) → Chain → Fork PoC → Validate → Report |
-| **Thorough** | ~50-80 | Recon → Breadth(8) → Inventory → Semantic → Depth(6) → Nemesis → Chain → Fork PoC → Validate → Report |
+| **Thorough** | ~55-90 | Recon → Breadth(13) → Inventory → Semantic → Depth(6) → Nemesis → Chain → Fork PoC → Validate → Report |
 
 ---
 
@@ -98,7 +98,7 @@ If any check fails, RE-READ the missing file. Do not proceed.
 ```
 Phase 1:    Recon (4 agents — build, docs, patterns, surface)
 Phase 2:    Instantiation (orchestrator — template binding)
-Phase 3:    Breadth (8 specialized hacking agents)
+Phase 3:    Breadth (8 specialized hacking agents; thorough adds 5 attacker-framing agents → 13)
 Phase 4a:   Inventory + Dedup
 Phase 4a.5: Semantic Invariants (Core/Thorough)
 Phase 4b:   Depth (6 agents: token-flow, state-trace, edge-case, external, lowlevel, runtime)
@@ -174,9 +174,9 @@ Output: 16+ scratchpad artifacts (Phase 1.0 maps + Phase 1.1 agent outputs).
 
 ---
 
-## PHASE 3: BREADTH — 8 SPECIALIZED HACKING AGENTS
+## PHASE 3: BREADTH — 8 CORE HACKING AGENTS (+5 ATTACKER-FRAMING IN THOROUGH)
 
-Spawn ALL 8 in parallel. Each reads the full source + their agent instructions.
+Spawn the core 8 in parallel (light spawns the first 4). Each reads the full source + their agent instructions.
 
 | Agent | Focus | File |
 |-------|-------|------|
@@ -189,7 +189,21 @@ Spawn ALL 8 in parallel. Each reads the full source + their agent instructions.
 | 7 | Periphery — integration bugs, external protocol assumptions | `agents/hacking-agents/periphery-agent.md` |
 | 8 | First Principles — question everything, language-level bugs | `agents/hacking-agents/first-principles-agent.md` |
 
-Each agent uses `agents/hacking-agents/shared-rules.md` for output format.
+### Attacker-framing agents (THOROUGH MODE ONLY — added v1.19.0, ported from solidity-auditor v3)
+
+Spawn these 5 ADDITIONALLY in `thorough` mode (skip in `light`/`core`). They hunt cross-lens "gap" bugs the single-specialty core 8 miss. Each cross-references the core agents named below and must NOT re-report a single-lens finding those agents already own.
+
+| Agent | Focus | File |
+|-------|-------|------|
+| 9 | Asymmetry — paired-function / branch / writer-reader mismatches | `agents/hacking-agents/asymmetry-agent.md` |
+| 10 | Boundary — disciplined corner-case enumeration at every external boundary | `agents/hacking-agents/boundary-agent.md` |
+| 11 | Flow Gap — execution × periphery × first-principles seams | `agents/hacking-agents/flow-gap-agent.md` |
+| 12 | Numerical Gap — precision × invariant × boundary seams | `agents/hacking-agents/numerical-gap-agent.md` |
+| 13 | Trust Gap — access × economics × asymmetry seams | `agents/hacking-agents/trust-gap-agent.md` |
+
+> **Roster note**: solidity-auditor v3 shipped 12 agents by RETIRING vector-scan. dewaxguard KEEPS vector-scan (its recon `blackhat-maps`, `parse_findings.py`, self-calibration, and M-18/M-21 depend on it), so the thorough roster is 8 + 5 = **13**.
+
+Each agent uses `agents/hacking-agents/shared-rules.md` for output format, and may consult `references/senior-auditor-sop.md` for the Feynman / Socratic / Inversion mental tools (light-touch, not orchestrator-enforced).
 
 ---
 
@@ -459,7 +473,7 @@ dewaxguard/
 │   ├── solana/                       # Solana benchmarks (missing-signer, pda-substitution)
 │   └── sui/                          # Sui benchmarks (shared-object-race)
 ├── agents/
-│   ├── hacking-agents/               # Phase 3: 8 breadth agents
+│   ├── hacking-agents/               # Phase 3: 8 core + 5 thorough-only (v1.19.0)
 │   │   ├── vector-scan-agent.md
 │   │   ├── math-precision-agent.md
 │   │   ├── access-control-agent.md
@@ -468,6 +482,11 @@ dewaxguard/
 │   │   ├── invariant-agent.md
 │   │   ├── periphery-agent.md
 │   │   ├── first-principles-agent.md
+│   │   ├── asymmetry-agent.md        # NEW (1.19.0): thorough-only attacker-framing
+│   │   ├── boundary-agent.md         # NEW (1.19.0)
+│   │   ├── flow-gap-agent.md         # NEW (1.19.0)
+│   │   ├── numerical-gap-agent.md    # NEW (1.19.0)
+│   │   ├── trust-gap-agent.md        # NEW (1.19.0)
 │   │   └── shared-rules.md
 │   ├── nemesis/                      # Phase 4b.1: Nemesis
 │   │   ├── feynman.md
@@ -526,5 +545,6 @@ dewaxguard/
     │   ├── cantina.md
     │   └── immunefi.md
     ├── report-formatting.md
+    ├── senior-auditor-sop.md          # NEW (1.19.0): Feynman/Socratic/Inversion mental tools (light-touch)
     └── judging.md
 ```

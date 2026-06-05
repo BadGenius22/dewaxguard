@@ -43,7 +43,9 @@ Read the inputs above (use the Read tool). Specifically extract:
 |------|----------------|--------|
 | `light` | 4: vector-scan, math-precision, access-control, economic-security | all `sonnet` |
 | `core` | 8: + execution-trace, invariant, periphery, first-principles | `opus` for math-precision + access-control + invariant; `sonnet` for the rest |
-| `thorough` | 8 (same as core) | all `opus` |
+| `thorough` | 13: core 8 + asymmetry, boundary, flow-gap, numerical-gap, trust-gap (attacker-framing agents #9-13) | all `opus` |
+
+> **Attacker-framing agents (#9-13, thorough only, added v1.19.0 from solidity-auditor v3)**: spawned ONLY in thorough mode. The 5 agents (asymmetry, boundary, flow-gap, numerical-gap, trust-gap) hunt cross-lens "gap" bugs that the single-specialty core 8 miss. In `light`/`core` they are NOT spawned. vector-scan is retained (dewaxguard keeps it; v3 dropped it) — so thorough = 13, not 12.
 
 ---
 
@@ -116,6 +118,13 @@ SCOPE: Write ONLY to {{SCRATCHPAD}}/{OUTPUT_FILE}. Do NOT read or write other ag
 | 6 | Invariant | invariant-agent.md | analysis_invariant.md | state-flags + invariant-extract | 40 | 40 |
 | 7 | Periphery | periphery-agent.md | analysis_periphery.md | integration-map | 30 | 40 |
 | 8 | First Principles | first-principles-agent.md | analysis_first_principles.md | unsafe-map + divergence-map | 40 | 50 |
+| 9 | Asymmetry | asymmetry-agent.md | analysis_asymmetry.md | divergence-map + state-flags | 40 | 50 |
+| 10 | Boundary | boundary-agent.md | analysis_boundary.md | integration-map + unsafe-map | 40 | 50 |
+| 11 | Flow Gap | flow-gap-agent.md | analysis_flow_gap.md | state-flags + integration-map | 40 | 50 |
+| 12 | Numerical Gap | numerical-gap-agent.md | analysis_numerical_gap.md | math-map + invariant-extract | 40 | 40 |
+| 13 | Trust Gap | trust-gap-agent.md | analysis_trust_gap.md | guard-map + integration-map | 40 | 50 |
+
+> **Rows 9-13 (asymmetry, boundary, flow-gap, numerical-gap, trust-gap) are thorough-mode ONLY.** Skip them in `light` and `core`. They are attacker-framing cross-lens agents ported from solidity-auditor v3 (dewaxguard v1.19.0). They reuse existing preprocessor maps (no new recon artifacts required).
 
 **Budget tuning per mode**: in `light` mode, halve all budgets. In `thorough` mode, multiply by 1.5. Round to nearest 5.
 

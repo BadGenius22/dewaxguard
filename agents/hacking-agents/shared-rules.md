@@ -13,6 +13,21 @@ When matching function names, check language-specific naming conventions:
 - **Move**: `public fun function_name` / `fun function_name` (native module functions)
 - **C++**: `ClassName::method` and free `functionName`; virtual/override methods; template instantiations; `namespace::function`. For rippled-pattern: `Transactor::preflight`, `Transactor::preclaim`, `Transactor::doApply` are the entry points for tx logic.
 
+## Mental tools (senior-auditor mindset)
+
+> Ported light-touch from solidity-auditor v3. Full reference: `references/senior-auditor-sop.md`. These are reasoning aids that raise finding quality — they are NOT enforced by an orchestrator marker grep, so use them because they work, not because they're checked.
+
+Pattern-matching catches obvious bugs; the high-value ones come from HOW you reason. Reach for the right tool the moment its trigger fires:
+
+| Trigger (the condition) | Tool | What you do |
+|---|---|---|
+| You open a new function/contract/module | **Feynman** (always first) | Explain what it does in plain English, no language jargon. Wherever the explanation gets fuzzy or you reach for a technical term to stay accurate — that spot is where a hidden assumption (and a bug) lives. |
+| You stop on a line whose purpose isn't immediately clear | **Socratic** | Ask "why is this here? what does it assume?" Drill past restatements (2-3 "whys") until you reach the implicit belief the code rests on. |
+| A path reads clean / a check looks sufficient / a guard looks correct | **Inversion** | Re-read it backward as an attacker: three concrete moves (specific addresses/values/states) that try to defeat it. |
+| You reached a "bug" conclusion | Amplify | Chain it, find more victims, lower the precondition cost — do NOT argue yourself out of it. |
+
+You MAY emit inline markers in your **working text** to show the reasoning — `[Feynman: <name>]`, `[Socratic: <file:line> — why?]`, `[Inversion: <function>]`. Keep these markers OUT of the `FINDING |` / `LEAD |` blocks (those are parsed mechanically by `scripts/parse_findings.py`). The markers are for reasoning depth, never for output volume.
+
 ## Cross-contract patterns
 
 When you find a bug in one contract, **weaponize that pattern across every other contract in the bundle.** Search by function name AND by code pattern. Finding native/ERC20 confusion in `ContractA.onRevert` means you check every other contract's `onRevert` — missing a repeat instance is an audit failure.

@@ -29,6 +29,16 @@ For every public/external function in target contracts:
 - **Brick via compute/gas/resource complexity.** Find loops in utility code whose worst-case cost bricks critical protocol functions. For C++ ledgers: find invariant-check loops that can be triggered with attacker-controlled state to explode runtime.
 - **Race provider swaps.** Exploit provider wrappers where the underlying provider is swapped while requests are still pending from the old one.
 
+### Encoder / storage-context / oracle attack moves (ported from solidity-auditor v3 — examples Solidity, map to {LANGUAGE})
+
+- **Truncate cross-encoded recipients.** Encoders packing a long sender (`bytes32` non-EVM address, full address + extra) into a narrower output (`bytes20`) silently truncate; refunds and callbacks route to the truncated value. Trace every encoder/decoder for length mismatches.
+- **Read library under wrong storage context.** A library or helper calling a getter assumes it reads the caller's storage; when called from a contract using its own slot 0 (NFTManager, Facet, wrapper), it reads the helper's storage instead — getter returns zero-init values.
+- **Skip ERC165 dispatch in decoder fallbacks.** Encoders or wrappers using `supportsInterface` to choose dispatch branches default-fallback when the wrapped contract omits ERC165; downstream consumers proceed under the wrong interface assumption.
+- **Hardcode magic IDs in helper lookups.** Library helpers using a hardcoded constant ID for storage keys silently fail when no real entry was ever written under that key; lookups return zero. Walk every magic-number storage key.
+- **Read oracle in same block as deposit.** Lending or vault wrappers reading an external oracle in the same block as a write are stale; an attacker manipulates the oracle in the prior block and the wrapper accepts the manipulated value.
+- **Manipulate single-block oracles.** Wrappers reading a spot price (`slot0`, single-source feed) in the same transaction as a deposit/liquidation accept attacker-set values; the wrapper appears to validate but the validation is itself single-block.
+- **Trust divergence-check dead code.** A "safety check" comparing two values uses unreachable comparators (divergence threshold > max possible divergence); the gate is dead code masquerading as protection.
+
 ## Safe Module / Delegate-Executor / Arbitrary-Path (EVM, M-29)
 
 If the recon emitted `delegate-executor-map.md` with `SAFE_MODULE_OR_DELEGATE_EXECUTOR=true` or `ARBITRARY_PATH_EXECUTION=true`, the contract is a member of the SquidRouter-class attack surface. Read `methodology/M29-safe-module-delegate-executor.md` and apply the path-validation tests (STEP 3) for every external-call site in section C of the map:

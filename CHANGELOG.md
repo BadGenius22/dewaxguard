@@ -1,5 +1,31 @@
 # DewaxGuard Changelog
 
+## [1.19.0] - 2026-06-05
+
+**Origin**: Upstream sync with solidity-auditor v3 (pashov/skills `c9ce8cf`, "attacker-framing 12-agent rewrite", 2026-06-04). dewaxguard's `agents/hacking-agents/` is derived from solidity-auditor's hacking agents; v3's improvements were ported in, adapted for dewaxguard's multi-language + pipe-format-parser pipeline. Two integration decisions taken by the maintainer: (1) **roster = add-5-gated-by-mode** — keep vector-scan (dewaxguard's recon `blackhat-maps`, `parse_findings.py`, self-calibration, and M-18/M-21 depend on it; v3 dropped it) and spawn the 5 new attacker-framing agents in **thorough mode only**, so thorough = 8 + 5 = 13 (not v3's 12). (2) **mental tools = ship-content-light-touch** — port senior-auditor-sop + a shared-rules "Mental tools" reference WITHOUT orchestrator marker-grep enforcement (dewaxguard already has a Nemesis-Feynman phase) and WITHOUT disturbing the `FINDING |` pipe format consumed by `scripts/parse_findings.py`.
+
+### Added
+- **5 attacker-framing hacking agents** (`agents/hacking-agents/`, thorough-mode only) — cross-lens "gap" hunters that the single-specialty core 8 miss, each adapted with a `## Language routing` section (EVM/Solana/Move/C++) and the house FINDING/LEAD pipe output:
+  - `asymmetry-agent.md` — paired-function / branch / writer-reader storage-write mismatches.
+  - `boundary-agent.md` — disciplined corner-case enumeration at every external boundary (no-code receiver, non-standard token, sentinel-address, bytes-decode truncation).
+  - `flow-gap-agent.md` — execution × periphery × first-principles seams (bugs needing ≥2 lenses).
+  - `numerical-gap-agent.md` — precision × invariant × boundary seams.
+  - `trust-gap-agent.md` — access × economics × asymmetry seams (notes realism-filter downgrade for fully-trusted-actor exploits).
+- **`references/senior-auditor-sop.md`** — Feynman / Socratic / Inversion mental tools (language-generalized from v3). Referenced light-touch from shared-rules; not orchestrator-enforced.
+
+### Changed
+- **`agents/hacking-agents/invariant-agent.md`** — appended v3's 8 coupled-mutation attack moves to "Step 2 — Break each invariant" (stale-cache-after-mutation, timer reset via secondary path, in-flight global-param mutation, view/write divergence, partial-mint peg break, emergency value-strand, cap bypass on secondary path, cross-read state-price coupling).
+- **`agents/hacking-agents/math-precision-agent.md`** — appended v3's 8 cast/shift/edge-divisor attack moves (narrow-int sign loss, intermediate-shift overflow, sole-occupant boundary, cast-wrap at saturation, tiny-principal accrual truncation, unsigned-bonus underflow, wrong-bitmask, unconstrained-edge divisor).
+- **`agents/hacking-agents/periphery-agent.md`** — appended v3's 7 encoder/storage-context/oracle attack moves (cross-encoded recipient truncation, wrong storage-context library read, ERC165 dispatch fallback, magic-ID helper lookups, same-block oracle read, single-block oracle manipulation, divergence-check dead code).
+- **`agents/hacking-agents/shared-rules.md`** — added a "Mental tools (senior-auditor mindset)" section between Reading and Cross-contract patterns. Trigger→tool table (Feynman/Socratic/Inversion) + explicit instruction that inline `[Tool: ...]` markers live in working text, NOT in `FINDING |`/`LEAD |` blocks (parser-safe). Output-format section untouched.
+- **`SKILL.md`** — frontmatter description, banner, modes table (thorough Breadth 8→13), pipeline overview, Phase 3 roster (new "Attacker-framing agents — thorough only" subtable #9-13), and FILE STRUCTURE listing.
+- **`prompts/phases/30_breadth.md`** — agent-set-per-mode table (thorough = 13) and agent dispatch table rows 9-13 (output files, reused preprocessor maps, budgets), both marked thorough-only.
+
+### Not changed (deliberate divergence from v3)
+- **vector-scan-agent retained.** v3 retired it; dewaxguard keeps it because `build_recon_maps.sh` (blackhat-maps), `parse_findings.py`, `improve/SELF-CALIBRATE.md`, `improve/CONSOLIDATE.md`, M-18 and M-21 all reference it. Removing it is pipeline surgery, not a content port.
+- **No orchestrator marker-grep verification** of the mental-tool protocol (light-touch only) and **no driver/content-gate changes** — the new agents reuse the existing breadth dispatcher, output files, and gates.
+- **light / core modes unchanged** — the 5 new agents do not spawn there.
+
 ## [1.18.1] - 2026-06-04
 
 **Origin**: Wiring the M-30 recon trigger so the signature-binding/replay lens auto-fires — v1.18.0 added the methodology but left its trigger as "proposed". Raised while reviewing EVM applicability: M-30 is the most EVM-relevant of the v1.18.0 additions (EVM is signature-auth-heavy — EIP-712 / permit / Permit2 / EIP-3009 / EIP-1271 / ERC-4337).

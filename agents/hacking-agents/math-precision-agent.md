@@ -32,6 +32,17 @@ For the detected language, read `~/.claude/prompts/{LANGUAGE}/phase4b-lowlevel-t
 
 **Inflate share prices.** As the first depositor (EVM: ERC-4626 vault; Solana: token vault; C++: XRPL Vault / AMM liquidity pool), donate to inflate the exchange rate. Make subsequent depositors round to 0 shares and steal their deposits.
 
+### Cast / shift / edge-divisor attack moves (ported from solidity-auditor v3 — examples Solidity, map to {LANGUAGE})
+
+- **Lose sign on narrow-int casts.** `uint24`/`int24` round-trips drop the sign bit; negative ticks or signed offsets become huge positive values, corrupting downstream tree-tick or interval math.
+- **Overflow inside intermediate shifts.** `(x << shift) / y` overflows uint256 when shift makes x exceed type max — even though the divided result is safe. Construct flash-loan-scale x that breaks the intermediate.
+- **Round at sole-occupant boundary.** Strict-less-than guards on participant counts or pool sizes exclude the single-occupant case; verify `<=` is the correct comparator for every distinguishing-from-zero check.
+- **Cast-wrap at saturation.** Down-casts `uint64((x << 64) / y)` wrap to near-zero when the ratio approaches 1; at saturation utilization, fees and rates silently collapse instead of being capped.
+- **Truncate interest accrual on tiny principals.** Lending utilization curves scaling by `rate / SECONDS_PER_YEAR` produce zero accrual when `principal · rate < SCALE`; borrowers pay nothing across the period.
+- **Underflow in unsigned-bonus computations.** `unsigned a - unsigned b` underflows when `b > a` at insolvent or edge positions; downstream code interprets the wrap-around as a huge value. Walk every `a - b` where bounds aren't asserted.
+- **Mask the wrong bits.** Bitmask constants in pack/unpack helpers silently clear or preserve adjacent fields when miscalculated; downstream readers receive zero for fields that should carry data. Verify every mask against the bit layout it claims to extract.
+- **Divide by an unconstrained edge value.** Formulas `x / tickSpacing`, `x / config.value`, `x / decimals` revert or zero when the edge case (1, 0) is permitted. Construct an input where the divisor reaches the edge.
+
 **For C++ ledger-specific math**: check `mulRatio` rounding direction (`roundUp` bool parameter), check `to_mantissa_exponent_round` in `STAmount`, check fee application order (transferRate applied once or twice across path steps), check `sharesToAssetsDeposit` vs `sharesToAssetsWithdraw` asymmetry.
 
 **Every finding needs concrete numbers.** Walk through the arithmetic with specific values. No numbers = LEAD.
