@@ -1,3 +1,12 @@
+---
+id: M-23
+name: consistency-class-sweep
+trigger_type: code
+trigger_grep: "safeerc20|percent_mul|muldiv|safe_u128_to_i128|requirenotpaused|signercapability|tessuccess|find_program_address"
+trigger_languages: [all]
+applies_to_protocol_types: [any]
+---
+
 # M-23 — Consistency-Class Sweep
 
 > **Origin**: K2 Lending Protocol audit (2026-04-17 → 2026-05-27, Code4rena Stellar Soroban). 8 of 9 Lows + 4 of 5 Info findings followed this pattern across 8 audit passes (~89% of all findings).

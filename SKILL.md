@@ -24,10 +24,10 @@ allowed-tools: Bash(*) Read(*) Write(*) Grep(*) Glob(*) Agent(*)
 6. `LEARNED_INDEX.md` — one-line summary per past audit; provides historical recall + RC distribution
 7. `methodology/INDEX.md` — registry of M-NN templates with applicability metadata
 8. `platform-quirks/{detected_language}.md` — language-specific lessons (cpp, solidity, rust, move, etc.)
-9. `refuted/INDEX.md` (when this exists post-Tier-1#3 implementation) — cross-audit refuted vulnerability classes
+9. `refuted/INDEX.md` — cross-audit refuted vulnerability classes. A hit kills a hypothesis ONLY if the entry's structural reason also holds in the current target (verify, then cite `RF-NN`)
 
-**Step 3 — Trigger-aware methodology selection** (when Tier 1 #2 ships):
-10. For each M-NN with `trigger_grep:` frontmatter, run the grep against the audit codebase. Surface matches as "Applicable methodologies for this audit: M-X, M-Y, M-Z."
+**Step 3 — Trigger-aware methodology selection** (v1.20.0):
+10. Run `scripts/match_methodologies.sh --src {SRC} --lang {LANGUAGE} --out $SCRATCHPAD` — it reads every M-template's `trigger_*` frontmatter, greps the audit codebase, and emits `$SCRATCHPAD/applicable-methodologies.md`. Read it and load the FIRED templates first; treat its process-type table as the per-stage methodology checklist.
 
 ### Why this is mandatory
 
@@ -48,6 +48,8 @@ Before proceeding to audit work, verify:
 - [ ] MANIFEST.md was read (or absence noted — first session of new audit)
 - [ ] LEARNED_INDEX.md was read (or absence noted)
 - [ ] methodology/INDEX.md was read
+- [ ] refuted/INDEX.md was read (cross-audit refuted classes)
+- [ ] `scripts/match_methodologies.sh` was run and `applicable-methodologies.md` was read
 - [ ] platform-quirks/{language}.md was read for the detected language
 - [ ] V12-style outputs were checked for via `scripts/grep_v12.sh --count` (if any exist, `--invalid-only` corpus was ingested per M-25)
 - [ ] Any per-domain SCOPE_HINT to be written next will reference DEEP_DIVE_PLAN.md as primary source
@@ -67,7 +69,7 @@ If any check fails, RE-READ the missing file. Do not proceed.
 ╚═════╝ ╚══════╝ ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝
 ```
 
-**v1.0.0** — Multi-language smart contract security auditor combining three methodologies:
+**v1.21.0** — Multi-language smart contract security auditor combining three methodologies:
 - **8 Specialized Hacking Agents** (breadth coverage) **+ 5 attacker-framing agents in thorough mode** (asymmetry, boundary, flow-gap, numerical-gap, trust-gap — v1.19.0)
 - **Nemesis Iterative Cross-Feed** (deep business logic + state inconsistency)
 - **Language-Specific Low-Level + Runtime Analysis** (what other auditors miss)
@@ -209,7 +211,7 @@ Each agent uses `agents/hacking-agents/shared-rules.md` for output format, and m
 
 ## PHASE 4a: INVENTORY + MECHANICAL DEDUP (v1.12+)
 
-After all 8 breadth agents return, the orchestrator runs the v1.12 mechanical pipeline. This replaces ad-hoc orchestrator-led dedup (which is unreliable under context saturation) with three deterministic Python scripts:
+After all breadth agents return (8 core; 13 in thorough), the orchestrator runs the v1.12 mechanical pipeline. This replaces ad-hoc orchestrator-led dedup (which is unreliable under context saturation) with three deterministic Python scripts:
 
 ```bash
 # 1. Parse every breadth agent's prose output into the v1.0 findings_table schema.
@@ -436,6 +438,19 @@ For each finding:
 
 ---
 
+## POST-AUDIT: PHASE A RETROSPECTIVE GATE (MANDATORY — v1.20.0, Tier 2 #4)
+
+> **An audit is NOT closed when the report ships.** It closes only after outcomes are compared against ground truth. Without this loop, no signal exists on whether any methodology actually helped — the system is open-loop and every other improvement is theater.
+
+On report delivery (Phase 6 complete), the orchestrator MUST do exactly one of:
+
+1. **Ground truth available** (contest results published, client triage returned, bounty verdicts in): run `/dewaxguard improve` — build the Finding Alignment Matrix, compute recall/precision, classify every miss through the RC-AGENT presumption gate, and append the metrics row to `MEMORY.md` + the audit line to `LEARNED_INDEX.md`.
+2. **Ground truth NOT yet available**: append a row to `MEMORY.md` with `Recall% = DEFERRED (results expected ~{date})`. The deferred row is a standing obligation — when results land, re-open with `/dewaxguard improve` and backfill the row. `TBD` rows older than 2 entries are a workflow violation; chase the results or mark the audit `no-ground-truth` explicitly.
+
+Either path also requires the `LEARNED_INDEX.md` growth-protocol steps (promote methodologies, archive patterns, enrich platform-quirks, commit + push).
+
+---
+
 ## OPTIONS
 
 | Flag | Effect |
@@ -457,94 +472,58 @@ For each finding:
 ```
 dewaxguard/
 ├── SKILL.md                          # This file (orchestrator)
-├── VERSION                           # Skill version
-├── README.md                         # Setup + usage guide
-├── MEMORY.md                         # Metrics ledger (one line per audit)
-├── CHANGELOG.md                      # Version history
+├── VERSION / README.md / CHANGELOG.md
+├── MEMORY.md                         # Metrics ledger (one row per audit/post-mortem)
+├── LEARNED_INDEX.md                  # One-line summary per past audit + growth protocol
+├── methodology/                      # Cross-language M-NN templates with trigger_* frontmatter (v1.20.0)
+│   ├── INDEX.md                      #   registry M-03..M-30 (read every preflight)
+│   └── M{03..30}-*.md                #   code/artifact/process-triggered methodologies
+├── refuted/
+│   └── INDEX.md                      # Cross-audit refuted classes RF-NN (v1.20.0, Tier 1 #3)
+├── patterns/                         # Real-finding case studies, one dir per audit
+│   ├── INDEX.md
+│   └── xrpl-2026-04/
+├── platform-quirks/                  # Language-specific lessons: cpp, stellar, rust, go
+├── contest/
+│   └── sherlock/                     # poc-requirements, dedup-workflow, submission-structure
 ├── improve/
 │   ├── IMPROVE.md                    # Post-audit improvement (needs ground truth)
 │   ├── SELF-CALIBRATE.md             # Auto-runs after each audit (no ground truth)
-│   ├── BATCH-IMPORT.md               # Bulk-process public audit reports
-│   ├── BENCHMARK.md                  # Regression testing with known-vulnerable contracts
-│   └── CONSOLIDATE.md                # Anti-bloat sweep
+│   ├── BATCH-IMPORT.md / BENCHMARK.md / CONSOLIDATE.md
+│   ├── SELF-IMPROVEMENT-PLAN-2026-04.md   # Tier 1-4 roadmap + status table
+│   └── proposals/                    # Deferred proposals (3-strike rule)
 ├── benchmarks/                       # Known-vulnerable contracts for regression testing
-│   ├── manifest.json                 # Registry of all benchmarks
-│   ├── evm/                          # EVM benchmarks (reentrancy, share-inflation, etc.)
-│   ├── solana/                       # Solana benchmarks (missing-signer, pda-substitution)
-│   └── sui/                          # Sui benchmarks (shared-object-race)
+│   ├── manifest.json
+│   └── evm/ solana/ sui/
 ├── agents/
-│   ├── hacking-agents/               # Phase 3: 8 core + 5 thorough-only (v1.19.0)
-│   │   ├── vector-scan-agent.md
-│   │   ├── math-precision-agent.md
-│   │   ├── access-control-agent.md
-│   │   ├── economic-security-agent.md
-│   │   ├── execution-trace-agent.md
-│   │   ├── invariant-agent.md
-│   │   ├── periphery-agent.md
-│   │   ├── first-principles-agent.md
-│   │   ├── asymmetry-agent.md        # NEW (1.19.0): thorough-only attacker-framing
-│   │   ├── boundary-agent.md         # NEW (1.19.0)
-│   │   ├── flow-gap-agent.md         # NEW (1.19.0)
-│   │   ├── numerical-gap-agent.md    # NEW (1.19.0)
-│   │   ├── trust-gap-agent.md        # NEW (1.19.0)
-│   │   └── shared-rules.md
-│   ├── nemesis/                      # Phase 4b.1: Nemesis
-│   │   ├── feynman.md
-│   │   └── state-inconsistency.md
-│   ├── depth-token-flow.md           # Phase 4b: Depth agents
-│   ├── depth-state-trace.md
-│   ├── depth-edge-case.md
-│   ├── depth-external.md
-│   ├── depth-lowlevel.md             # NEW: Language-specific
-│   └── depth-runtime.md              # NEW: Runtime-specific
+│   ├── hacking-agents/               # Phase 3: 8 core + 5 thorough-only + shared-rules.md
+│   ├── nemesis/                      # Phase 4b.1: feynman.md + state-inconsistency.md
+│   ├── l1/                           # L1 mode: depth-consensus-invariant + depth-network-surface
+│   ├── depth-token-flow.md           # Phase 4b: standard depth agents
+│   ├── depth-state-trace.md / depth-edge-case.md / depth-external.md
+│   └── depth-lowlevel.md / depth-runtime.md   # language + runtime specific
 ├── prompts/
-│   ├── evm/
-│   │   ├── phase1-recon-prompt.md
-│   │   ├── phase4b-lowlevel-templates.md
-│   │   ├── phase4b-runtime-templates.md
-│   │   └── generic-security-rules.md
-│   ├── solana/
-│   │   ├── phase1-recon-prompt.md
-│   │   ├── phase4b-lowlevel-templates.md
-│   │   ├── phase4b-runtime-templates.md
-│   │   └── generic-security-rules.md
-│   ├── aptos/
-│   │   ├── phase1-recon-prompt.md
-│   │   ├── phase4b-lowlevel-templates.md
-│   │   ├── phase4b-runtime-templates.md
-│   │   └── generic-security-rules.md
-│   └── sui/
-│       ├── phase1-recon-prompt.md
-│       ├── phase4b-lowlevel-templates.md
-│       ├── phase4b-runtime-templates.md
-│       └── generic-security-rules.md
-├── rules/
-│   ├── finding-output-format.md
-│   ├── chain-analysis-prompt.md
-│   ├── report-template.md
-│   ├── fork-poc-execution.md         # NEW: Fork PoC rules
-│   ├── severity-matrix.md
-│   ├── docs-intent-map.md            # NEW (1.7.0): false-positive killer for documented intent
-│   ├── severity-decision-tree.md     # NEW (1.7.0): hard a/b/c severity tree applied at Phase 5d
-│   ├── auth-critical-files.md        # NEW (1.7.0): allowlist for files that must keep full bodies
-│   ├── agent-tool-budgets.md         # NEW (1.7.0): per-agent Read/Grep caps
-│   ├── realism-filter.md             # NEW (1.8.0): first-class permissionless/admin-trust/design-choice tagging applied at Phase 5d before severity tree
-│   └── agent-failure-recovery.md     # NEW (1.8.0): mandatory protocol when agents fail mid-pass — never fall back to manual orchestrator verification
-├── scripts/                          # NEW (1.7.0): deterministic recon preprocessors
-│   ├── build_recon_maps.sh           #   multi-language map builder (evm/solana/stellar/aptos/sui/cpp)
-│   └── squeezers/
-│       └── squeezer_rust.py          #   Rust source body-collapse with auth-critical allowlist
+│   ├── phases/                       # Driver-mode phase prompts (00_preflight .. 60_report)
+│   └── {evm,solana,stellar,aptos,sui,cpp}/    # phase4b-lowlevel + phase4b-runtime templates
+├── rules/                            # finding-output-format, chain-analysis-prompt, report-template,
+│                                     # fork-poc-execution, severity-matrix, l1-severity-matrix,
+│                                     # docs-intent-map, severity-decision-tree, auth-critical-files,
+│                                     # agent-tool-budgets, realism-filter, agent-failure-recovery,
+│                                     # plain-english-style, rag-validation-sweep, cross-class-preflight-firewall
+├── scripts/
+│   ├── build_recon_maps.sh           # Phase 1.0 recon maps incl. M-29/M-30 detector flags
+│   ├── match_methodologies.sh        # Preflight Step 3: trigger-aware methodology selection (v1.20.0)
+│   ├── parse_findings.py / dedup.py / severity_router.py   # Phase 4a mechanical pipeline (v1.12)
+│   ├── grep_v12.sh                   # M-25 V12-style known-issue dedup helper
+│   ├── dewaxguard_driver.py          # Driver mode (v1.13+) with phase gates + crash resume
+│   ├── bake_l1.sh                    # L1 mode Phase 0.5 bake (ast-grep/opengrep indexing)
+│   ├── findings_table.schema.json
+│   ├── gates/                        # content_check.py + coverage_check.py (driver-mode gates)
+│   └── squeezers/squeezer_rust.py    # Rust body-collapse with auth-critical allowlist
 └── references/
-    ├── attack-vectors/
-    │   └── attack-vectors.md
-    ├── criteria/                      # Bug validator criteria
-    │   ├── c4-competitive.md
-    │   ├── c4-bounty.md
-    │   ├── sherlock-competitive.md
-    │   ├── sherlock-bounty.md
-    │   ├── cantina.md
-    │   └── immunefi.md
-    ├── report-formatting.md
-    ├── senior-auditor-sop.md          # NEW (1.19.0): Feynman/Socratic/Inversion mental tools (light-touch)
-    └── judging.md
+    ├── attack-vectors/attack-vectors.md
+    ├── criteria/                     # c4-competitive, c4-bounty, sherlock-competitive,
+    │                                 # sherlock-bounty, cantina, immunefi
+    ├── report-formatting.md / judging.md
+    └── senior-auditor-sop.md         # Feynman/Socratic/Inversion mental tools (light-touch)
 ```

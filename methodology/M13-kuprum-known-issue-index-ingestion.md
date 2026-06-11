@@ -1,3 +1,11 @@
+---
+id: M-13
+name: kuprum-known-issue-index-ingestion
+trigger_type: artifact
+trigger_glob: "*KNOWN_ISSUES* *known_issues* *kuprum* *KNOWN-ISSUES* *known-issues*"
+trigger_languages: [all]
+applies_to_protocol_types: [any]
+---
 # M-13: Kuprum-style Known-Issue Index Ingestion (read 3rd-party dedup aids early)
 
 > **Origin**: XRPL Sherlock April 2026, ingested mid-audit on day 10 of the contest window.

@@ -61,8 +61,9 @@ The Invalid-marked entries explain why something LOOKS like a bug but isn't (pla
 |------|------|----------------|
 | Cross-audit history | `{{SKILL_ROOT}}/LEARNED_INDEX.md` | one-line summary per past audit — recall %, RC distribution, methodology validations |
 | Methodology registry | `{{SKILL_ROOT}}/methodology/INDEX.md` | M-NN templates with trigger_grep patterns |
+| Refuted classes | `{{SKILL_ROOT}}/refuted/INDEX.md` | cross-audit refuted classes (RF-NN) — a hit kills a hypothesis ONLY if its structural reason also holds in this target |
 
-Read both. They prime cross-audit pattern recognition.
+Read all three. They prime cross-audit pattern recognition and pre-refute dead hypotheses.
 
 ---
 
@@ -117,6 +118,18 @@ Read the required file in full. Record presence + a 1-line summary of each quirk
 
 ---
 
+## STEP 3.5 — Trigger-aware methodology selection (v1.20.0)
+
+Run the methodology matcher with the detected language:
+
+```bash
+bash {{SKILL_ROOT}}/scripts/match_methodologies.sh --src {{SRC_PATH}} --root {{PROJECT_ROOT}} --lang <LANGUAGE> --out {{SCRATCHPAD}}
+```
+
+Read `{{SCRATCHPAD}}/applicable-methodologies.md`. FIRED templates (code/artifact-triggered) are the methodologies downstream breadth/depth agents must load FIRST; the process-type table is the per-pipeline-stage checklist. Record the FIRED list in preflight.md.
+
+---
+
 ## STEP 4 — Output
 
 Write `{{SCRATCHPAD}}/preflight.md`:
@@ -150,6 +163,12 @@ Write `{{SCRATCHPAD}}/preflight.md`:
 
 - LEARNED_INDEX.md: PRESENT/ABSENT — N past audits cataloged
 - methodology/INDEX.md: PRESENT — <N> M-NN entries registered
+- refuted/INDEX.md: PRESENT/ABSENT — <N> RF-NN refuted classes loaded
+
+## Applicable methodologies (trigger-aware, v1.20.0)
+
+- **FIRED (code/artifact)**: <M-XX, M-YY — 1-line match evidence each>
+- **Process-type (per-stage checklist)**: see {{SCRATCHPAD}}/applicable-methodologies.md
 
 ## Language detection
 
@@ -183,6 +202,7 @@ Before exit, verify:
 - [ ] {{SCRATCHPAD}}/preflight.md is written and ≥ 1500 bytes
 - [ ] Language is detected (HIGH or MEDIUM confidence)
 - [ ] V12 outputs were checked for (count recorded)
+- [ ] match_methodologies.sh ran; FIRED list recorded from applicable-methodologies.md
 - [ ] Platform quirks file existence is recorded
 - [ ] No preflight step was silently skipped
 ```

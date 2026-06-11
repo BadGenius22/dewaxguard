@@ -1,3 +1,11 @@
+---
+id: M-15
+name: expiry-race-matrix
+trigger_type: code
+trigger_grep: "(cancel|finish|settle|unlock|valid|redeem)[_ ]?(after|until|by|at)|expir(ation|y|es|ed)|\bdeadline\b|\bmaturity\b|\bttl\b"
+trigger_languages: [all]
+applies_to_protocol_types: [any]
+---
 # M-15 — Expiry Race Matrix
 
 > **Purpose**: systematic methodology for auditing time-gated state transitions in any protocol that has state objects with expiry / deadline / TTL + interacting operations that can fire in the same block / ledger / slot.

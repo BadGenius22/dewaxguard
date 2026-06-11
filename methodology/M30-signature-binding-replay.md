@@ -1,3 +1,13 @@
+---
+id: M-30
+name: signature-binding-replay
+trigger_type: code
+trigger_grep: "ecrecover|ecdsa\.recover|signaturechecker|isvalidsignature|eip-?712|domainseparator|\bpermit\b|permit2|eip-?3009|eip-?2612|useroperation|ed25519|secp256k1|batchsigner|multisign|checksign|signingprefix|signdoc"
+trigger_languages: [all]
+applies_to_protocol_types: [any]
+recon_flags: [SIGNATURE_BOUND_AUTH, CROSS_CHAIN_REPLAY_SMELL]
+---
+
 # M-30 — Signature-Binding / Replay / Domain-Separation Audit
 
 > **Purpose**: systematic methodology for auditing whether every authorization artifact (signature, multisig blob, batch-signer, meta-tx permit, attestation, voucher) is **bound** to the exact context it authorizes — signer, signing-for account, envelope, chain, tx-type, nonce, expiry, value parameters — such that it cannot be **replayed** or **lifted** into a different context.

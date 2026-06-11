@@ -1,3 +1,12 @@
+---
+id: M-09
+name: sync-gap-detection
+trigger_type: code
+trigger_grep: "total_?(supply|shares|assets|borrow|debt|deposit|stake|bonded|allowance|locked)s?|outstanding_?amount|pool_?size|active_?proposal_?count"
+trigger_languages: [all]
+applies_to_protocol_types: [any]
+---
+
 # M-09: Aggregate-vs-Per-Entity SYNC_GAP Detection
 
 **Origin**: XRPL Sherlock April 2026, Domain 5 CONF-1 finding — a state-transition precondition checked the aggregate counter but the downstream invariant read per-entity state.

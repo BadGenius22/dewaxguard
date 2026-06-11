@@ -1,3 +1,12 @@
+---
+id: M-24
+name: fresh-eyes-surfaces
+trigger_type: process
+trigger_event: "late-stage sweep after >=1 prior breadth/depth pass completed (enumerate surfaces no themed pass covered)"
+trigger_languages: [all]
+applies_to_protocol_types: [any]
+---
+
 # M-24 — Fresh-Eyes Surface Sweep
 
 > **Origin**: K2 audit Pass 5 (FE-1: `flash-liquidation-helper` close-factor regression → QA-L06) and Pass 6 (Observation A: `claim_rewards` MAX_CLAIMABLE_ASSETS gap → QA-04). Both surfaced via a structured "what did the prior passes NOT investigate?" sweep.

@@ -1,5 +1,47 @@
 # DewaxGuard Changelog
 
+## [1.21.0] - 2026-06-12
+
+**Origin**: Follow-up to v1.20.0 in the same skill-improvement session — the user asked to "make sure or find a way for this skill to be thorough and 100% accurate." Rather than assert an unverifiable "100%", this release (a) states honestly that no LLM auditor can guarantee 100% recall or precision and why, (b) builds the machinery that maximizes accuracy and measures the residual, and (c) actually runs the measurement and acts on what it found. A blind breadth-pass benchmark run (6 contracts, answer-stripped) scored 6/6 recall, 5/6 trap precision — and surfaced three real problems, all fixed below.
+
+### Added
+- **`ACCURACY.md`** — the honest accuracy contract: why 100% is unachievable (open-ended reasoning, no enumerable bug oracle; the Sherlock 1260 0%-H/C-recall event as standing proof), what the skill's recall/precision/consistency maximizers actually are, how accuracy is *measured* not asserted, and the banned anti-patterns (auditing leaked benchmarks, editing oracles to match output).
+- **`scripts/selfcheck.sh`** — mechanical skill-integrity gate. 11 checks: version sync (VERSION/SKILL.md/CHANGELOG), methodology registry bidirectional + links, trigger-frontmatter validity (ERE compiles, no brace-globs, no double-backslash), SKILL.md path references resolve, pattern-library links, criteria files present, script syntax, benchmark manifest + ground-truth parse, refuted index, blind-stripper leak guard, disputed-oracle review-note guard. This is the one place "100%" is the right word — internal consistency is enforced by a script, held green this release.
+- **`scripts/blind_benchmark.sh`** — produces answer-blind benchmark copies (strips every comment, refuses to copy `ground-truth.json`). Fixes a latent measurement bug: the committed benchmark sources carry `// VULNERABLE:` answer comments, so every prior "benchmark" run was scored against a leaked answer key.
+- **`scripts/score_benchmark.py`** — mechanical scorer: parses `FINDING |` lines, computes must_detect recall (range-overlap + class-token match), false-positive-trap precision (midpoint-in-window, so a real finding abutting a safe function doesn't phantom-trigger), and per-finding severity delta. Respects `must_detect:false`/`disputed` oracle entries. CI-gateable (exit 0 iff recall 100% and no trap triggered).
+- **`platform-quirks/sui.md`** — first real Sui quirks file (was a stub reference). Lead quirk: shared-object access is consensus-serialized, so EVM-style lost-update races on shared objects are invalid findings; plus owned-object auth, `key` vs `key+store`, hot-potato, OTW, and Move abort-not-wrap arithmetic — each with an "invalid finding pattern → reframe as" row.
+- **`refuted/INDEX.md` RF-12** — EVM-style lost-update race on a Sui/Move shared-object field (refuted: consensus serialization), with the re-check precondition (same-tx = atomic; cross-tx = staleness; non-serialized runtime = LIVE) and the equivocation/liveness caveat.
+- **`benchmarks/results/v1.21.0_2026-06-12.md`** — the baseline run with full caveats (single breadth pass, sonnet, toy contracts; Aptos/Stellar/C++ trees unmeasured).
+
+### Changed
+- **`benchmarks/sui/shared-object-race/ground-truth.json`** — corrected oracle. The original sole finding asserted an EVM-style "concurrent read-then-write race"; that cannot occur on Sui (consensus serializes shared-object txns). The blind breadth agent correctly refused to report it and instead found a real bug the oracle missed (accumulated `Balance<SUI>` has no withdraw/claim path → permanent fund lock). The real fund-lock is now `must_detect:true`; the disputed race is retained `must_detect:false, disputed:true` with an `_oracle_review` provenance note. This is an oracle *correction* (independently verifiable by reading the file), explicitly NOT metric-coaching.
+- **`improve/BENCHMARK.md`** — new MANDATORY "run BLIND" section wiring `blind_benchmark.sh` + `score_benchmark.py` into the benchmark flow, plus the two banned anti-patterns.
+- **`VERSION`** → 1.21.0.
+
+### Measured, not changed (flagged for monitoring)
+- **Breadth agents over-escalate severity** (+1 tier on 4/6 benchmarks). On single-function toy contracts a full drain is arguably Critical, so part of the gap is benchmark conservatism — but the consistent upward bias is real and is what the downstream realism-filter + severity-decision-tree (Phase 5d) exist to correct. No change made; left as a calibration signal in the results file.
+- **Coverage gap**: no Aptos/Stellar/C++ benchmark exists; those trees are unmeasured.
+
+## [1.20.0] - 2026-06-12
+
+**Origin**: Skill-improvement session ("improve this skill in terms of smartness and accuracy"). Ships the three highest-leverage NOT_STARTED items from `improve/SELF-IMPROVEMENT-PLAN-2026-04.md` — Tier 1 #2 (trigger-pattern matching), Tier 1 #3 (negative-results retrieval), and Tier 2 #4 (mandatory Phase A retrospective — the plan's own "single highest-leverage gap; without it the system is open-loop and everything else is theater") — plus registry/doc accuracy bugs found during a full consistency audit of the skill.
+
+### Added
+- **`trigger_*` YAML frontmatter on all 25 methodology templates** (M-03..M-30): `trigger_type: code|artifact|process`, `trigger_grep` (cross-language POSIX ERE) / `trigger_glob` / `trigger_event`, `trigger_languages`, `applies_to_protocol_types`, and `recon_flags` where `build_recon_maps.sh` detectors already exist (M-29, M-30). Every code pattern was validated to fire on the template's own validated-origin codebase tokens.
+- **`scripts/match_methodologies.sh`** — preflight Step 3 matcher. Parses the frontmatter, greps the audit target (code-type), checks artifact globs, and emits `$SCRATCHPAD/applicable-methodologies.md` with FIRED / process-checklist / not-fired / language-skipped sections. Smoke-tested: the share-inflation benchmark fires M-09; a synthetic escrow+permit+setter contract fires M-03/M-08/M-17/M-30; `--lang solana` correctly skips the evm-only M-29.
+- **`refuted/INDEX.md`** (Tier 1 #3) — cross-audit refuted vulnerability classes **RF-01..RF-11**, each with a mandatory structural-reason + re-check-precondition format (a refutation transfers ONLY if its structural reason holds in the new target), an anti-anchoring rule, and an amendment rule. RF-03 ("read-only RPC immune") is the canonical narrowed-after-counterexample entry, amended per Sherlock 1260 F39.
+- **SKILL.md `POST-AUDIT: PHASE A RETROSPECTIVE GATE`** (Tier 2 #4) — an audit does not close until outcomes are compared against ground truth via `/dewaxguard improve`, or a `DEFERRED (results expected ~date)` row is logged to MEMORY.md as a standing obligation.
+
+### Changed
+- **SKILL.md preflight** — Step 2 item 9 (`refuted/INDEX.md`) and Step 3 (matcher invocation) are now live instead of "when Tier 1 #N ships"; the self-check gains two boxes.
+- **`prompts/phases/00_preflight.md`** (driver mode, kept in sync) — STEP 1c adds `refuted/INDEX.md`; new STEP 3.5 runs the matcher after language detection; output template + self-check extended.
+- **`methodology/INDEX.md`** — registered the previously-MISSING **M-13** and **M-14** rows. Both files existed since 2026-04 but were absent from the registry the preflight reads, so they could never be surfaced. "How to use" gains step 0 (run the matcher).
+- **`methodology/M09-sync-gap-detection.md`** — trigger pattern extended with standard DeFi aggregate vocabulary (`totalShares|totalAssets|totalBorrows|totalDebt|totalDeposits|totalBonded|totalLocked`) after the share-inflation benchmark exposed a recall gap in the initial pattern.
+- **MEMORY.md** — added the missing Sherlock 1260 post-mortem metrics row (0% H/C recall, 5/9 valid, RC = 3 METHOD / 2 DEPTH / 4 AGENT) and a 1.18.0 summary paragraph; the ledger previously stopped at 1.10.1.
+- **SKILL.md accuracy fixes** — banner version was stale at v1.0.0; Phase 4a breadth-count wording (8 core / 13 thorough); FILE STRUCTURE rewritten to match the actual repo (was missing `methodology/`, `refuted/`, `patterns/`, `platform-quirks/`, `contest/`, `LEARNED_INDEX.md`, `prompts/phases/`, `prompts/{stellar,cpp}/`, `agents/l1/`, 9 rules files, and 8 scripts).
+- **`improve/SELF-IMPROVEMENT-PLAN-2026-04.md`** — status table updated: 1.2 / 1.3 / 2.4 → SHIPPED (v1.20.0); 2.6 → PARTIAL (frontmatter `applies_to` half shipped); 2.5 annotated with existing partial coverage.
+- **`VERSION`** → 1.20.0.
+
 ## [1.19.1] - 2026-06-05
 
 **Origin**: User triage directive during the Polymarket CTF Exchange v2 bounty review. Finding M-02 (self-pause kill-switch keyed to the EOA via `pauseUser()` but validated against `order.maker`, so it is inert for POLY_PROXY/POLY_GNOSIS_SAFE makers) is real and has a passing Polygon mainnet-fork PoC (a live operator `matchOrders` settles the paused proxy user's order), but its entire attack path is gated on the victim's own signer key being compromised. That class is an out-of-scope auto-invalidator on virtually every bug-bounty program, yet `references/criteria/cantina.md` had no such rule and the realism filter had no tag for it — so the pipeline could waste a verification / bug-validator pass before concluding "invalid". This closes the gap as a discovery-time filter so the class is rejected up front, no validator pass needed.

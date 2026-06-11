@@ -1,3 +1,12 @@
+---
+id: M-10
+name: prior-audit-dedup
+trigger_type: process
+trigger_event: "pre-submission — before marking a finding submission-ready, run 3-layer dedup (prior audits / project issue tracker / remediation status)"
+trigger_languages: [all]
+applies_to_protocol_types: [any]
+---
+
 # M-10: Pre-Submission 3-Layer Dedup
 
 **Origin**: XRPL Sherlock April 2026 — validated during final submission prep. 4 Mediums passed clean against 4 prior audit reports + GitHub baseline.

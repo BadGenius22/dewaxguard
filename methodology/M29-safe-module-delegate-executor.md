@@ -1,3 +1,13 @@
+---
+id: M-29
+name: safe-module-delegate-executor
+trigger_type: code
+trigger_grep: "exectransactionfrommodule|0x468721a7|executeonbehalf|executeonsafe|executesamechain|delegatebundler|executemetatransaction|swaponbehalf|isauthorizeddelegate|verifydelegate|processdelegatedorder|getpermissionhash|unlock_typehash|lock_typehash|iuniversalvault|unstakeandclaim|lockandstake|ragequit"
+trigger_languages: [evm]
+applies_to_protocol_types: [any]
+recon_flags: [SAFE_MODULE_OR_DELEGATE_EXECUTOR, ARBITRARY_PATH_EXECUTION]
+---
+
 # M-29: Safe Module / Delegate-Executor / Arbitrary-Path Authorization Audit
 
 > **Origin**: SquidRouter hack (2026-05, ~$3.07M DAI extracted). Attacker called `executeSameChainActions()` on victim Safes via the `DelegateBundler` path, impersonating an authorized delegate. Module executed arbitrary Uniswap V3 swaps against attacker-deployed token "u" / pre-seeded UniV3 pools. The bug class: a privileged execution wrapper where the auth gate on the outer (bundler) path did not match the auth assumption of the inner (per-Safe) action. Permissionless attack — no keys compromised, no admin action required.

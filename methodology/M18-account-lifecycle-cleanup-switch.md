@@ -1,3 +1,11 @@
+---
+id: M-18
+name: account-lifecycle-cleanup-switch
+trigger_type: code
+trigger_grep: "accountdelete|selfdestruct|self_destruct|object::delete|move_from|keeper\.delete|(close|delete|destroy)_?(account|object|vault|pool|position|market|issuance|loan|broker)|nonobligation|deletion_blocker|teardown"
+trigger_languages: [all]
+applies_to_protocol_types: [any]
+---
 # M-18 — Account-Lifecycle Cleanup-Switch Completeness Matrix
 
 > **Cross-language methodology for auditing account/object lifecycle close operations.**

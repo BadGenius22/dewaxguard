@@ -1,3 +1,12 @@
+---
+id: M-27
+name: realistic-attacker-severity
+trigger_type: process
+trigger_event: "severity assessment of any finding claiming direct fund loss that requires attacker capital and is not flash-loanable"
+trigger_languages: [all]
+applies_to_protocol_types: [any]
+---
+
 # M-27: Realistic-Attacker Severity Framework
 
 > **Origin**: Ledgity Yield audit (2026-05-26). H-01 (WrappedLToken APR-race) was graded High based on a stacked worst-case scenario ($100M TVL × 90d gap × 100% attacker share → $1.24M extraction). Mainnet-fork PoC verified the mechanism but the realistic-attacker EV at production parameters caps in the Medium tier ($30k–$400k range, requires $1M+ pre-positioned capital). The audit had no framework forcing the auditor to compute *who can actually pull this off and what does it cost them*.

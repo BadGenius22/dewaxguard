@@ -1,3 +1,12 @@
+---
+id: M-08
+name: holder-plants-trap
+trigger_type: code
+trigger_grep: "escrow|claimable_?balance|clawback|freeze_?account|forcetransfer|burn_from|timelock|mptokenissuance|lockedamount"
+trigger_languages: [all]
+applies_to_protocol_types: [any]
+---
+
 # M-08: Holder-Plants-Trap / Admin-Action-Bricks-State
 
 **Origin**: XRPL Sherlock April 2026 — the highest-yield attack template from this audit. 4 of 4 Medium findings (ESC-1/2/3, CONF-1) traced to this pattern.

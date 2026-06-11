@@ -1,3 +1,12 @@
+---
+id: M-12
+name: granular-permission-sandbox
+trigger_type: code
+trigger_grep: "granular_permission|checkgranularsemantics|onlyrole|accesscontrol|access_control|capability<|delegateset|permissionmask"
+trigger_languages: [all]
+applies_to_protocol_types: [any]
+---
+
 # M-12: Granular Permission Sandbox ↔ Semantic Override Audit
 
 **Origin**: XRPL Sherlock April 2026, Domain 6 (DEL-1). A 5th Medium finding where XLS-0075 v1.1's new granular-permission sandbox enforces syntactic field/flag templates but defaults the per-transactor semantic hook to permissive. `SponsorshipSet` lacks the override → delegate granted narrow `SponsorFee` permission can CREATE arbitrary new sponsorships, draining principal's XRP.

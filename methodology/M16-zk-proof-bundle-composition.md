@@ -1,3 +1,11 @@
+---
+id: M-16
+name: zk-proof-bundle-composition
+trigger_type: code
+trigger_grep: "bulletproof|range[_ ]?proof|groth16|\bplonk\b|halo2|pedersen|fiat[_-]?shamir|schnorr|elgamal|\bsnark\b|zk[_ ]?(proof|snark|verif)|circom|\bnoir\b|sigma[_ ]?protocol|equality[_ ]?proof"
+trigger_languages: [all]
+applies_to_protocol_types: [zk]
+---
 # M-16 — ZK-Proof-Bundle Composition Audit
 
 > **Purpose**: systematic methodology for auditing any protocol that composes ≥2 zero-knowledge primitives (sigma + range proof, sigma + linkage, equality + range, verifier-derived public commitments) OR any protocol where a cryptographic bundle wraps multiple Fiat-Shamir transcripts under a single operation.

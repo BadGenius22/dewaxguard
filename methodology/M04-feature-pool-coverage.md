@@ -1,3 +1,12 @@
+---
+id: M-04
+name: feature-pool-coverage
+trigger_type: process
+trigger_event: "pre-submission — when a finding's root cause lives in shared infrastructure, extend the PoC with a reward-pool feature transaction so the judge can classify it"
+trigger_languages: [all]
+applies_to_protocol_types: [any]
+---
+
 # M-04: Feature-Pool PoC Coverage
 
 **Origin**: XRPL Sherlock April 2026, Domain 4 — derived from CONTEST_FAQ feature-labeling requirement + ESC-1 classification.

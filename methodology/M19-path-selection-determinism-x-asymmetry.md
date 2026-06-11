@@ -1,3 +1,11 @@
+---
+id: M-19
+name: path-selection-determinism-x-asymmetry
+trigger_type: code
+trigger_grep: "path[_ ]?find(er|ing)?|\brouter\b|route[_ ]?(select|find|handler|map)|aggregator|smart[_ ]?order[_ ]?router|\bsolver\b|multi[_ ]?hop|best[_ ]?(path|route|quote)|order[_ ]?match(ing|er)?|\bclob\b|deepbook"
+trigger_languages: [all]
+applies_to_protocol_types: [dex]
+---
 # M-19: Path-Selection Determinism × Economic-Asymmetry Matrix
 
 > **Cross-language audit methodology** for path-finding / route-selection / DEX-aggregator code in any blockchain.

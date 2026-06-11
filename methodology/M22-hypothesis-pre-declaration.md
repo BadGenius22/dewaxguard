@@ -1,3 +1,12 @@
+---
+id: M-22
+name: hypothesis-pre-declaration
+trigger_type: process
+trigger_event: "audit planning with >=3 domains or >=1500 nSLoC scope (pre-declare falsifiable hypotheses before breadth)"
+trigger_languages: [all]
+applies_to_protocol_types: [any]
+---
+
 # M-22 — Hypothesis Pre-Declaration with Falsifiable Verdict Tracking
 
 **Origin**: Monetrix audit (April 2026), Code4rena. Domains 11/12/13/14 ran with pre-declared falsifiable hypotheses → all converged in 1-2 breadth agents instead of 8, with mechanical verdicts (CONFIRMED / REFUTED / PARTIAL). Without pre-declaration, agents do open-ended discovery and produce verbose-but-shallow output.

@@ -1,3 +1,11 @@
+---
+id: M-14
+name: elevated-impact-vs-unchanged-legacy
+trigger_type: process
+trigger_event: "Finding triage — candidate bug lives in code UNCHANGED by the contest delta, but a new amendment/feature elevates its reachability or impact (new-or-elevated scope ruling)"
+trigger_languages: [all]
+applies_to_protocol_types: [any]
+---
 # M-14: Elevated-Impact vs Unchanged-Legacy Judgment
 
 > **Origin**: XRPL Sherlock April 2026, Domain 14 (dev test diff as design oracle), L-32 candidate analysis.

@@ -1,3 +1,12 @@
+---
+id: M-26
+name: mechanical-inventory-dedup
+trigger_type: process
+trigger_event: "between Phase 3 breadth and Phase 4b depth of every audit (>=2 analysis_*.md files produced)"
+trigger_languages: [all]
+applies_to_protocol_types: [any]
+---
+
 # M-26 — Mechanical Inventory + Dedup + Severity Routing (v1.12+)
 
 > **Origin**: Plamen v2.0.0 (2026-05-13) deprecated its LLM orchestrator after observing context-saturation drift on multi-agent audits — late-pipeline phases silently skipped mandatory dedup work, and the same finding showed up 3-5x in the report under slightly different titles. dewaxguard v1.12 ports the mechanical-Python pattern: three deterministic scripts replace the LLM-led inventory phase.

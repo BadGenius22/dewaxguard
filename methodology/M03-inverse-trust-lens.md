@@ -1,3 +1,12 @@
+---
+id: M-03
+name: inverse-trust-lens
+trigger_type: code
+trigger_grep: "clawback|freeze_?account|forcetransfer|force_transfer|burn_from|burnfrom|seize|mptokenissuance|set_authority|forceburn"
+trigger_languages: [all]
+applies_to_protocol_types: [any]
+---
+
 # M-03: Inverse-Trust-Direction Lens
 
 **Origin**: XRPL Sherlock April 2026, Domain 4 (derived from T-08 trust decision + ESC-1/ESC-2 findings).

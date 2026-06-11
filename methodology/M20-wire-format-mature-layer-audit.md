@@ -1,3 +1,11 @@
+---
+id: M-20
+name: wire-format-mature-layer-audit
+trigger_type: code
+trigger_grep: "serializ(e|er|ation)|deserializ|\bborsh\b|\brlp\b|\bbcs\b|\bscale\b|protobuf|varint|wire[_ ]?format|canonical[_ ]?(form|ization)|\bsfield\b|stobject|type[_ ]?(code|tag|prefix|ordinal)|uleb128"
+trigger_languages: [all]
+applies_to_protocol_types: [any]
+---
 # M-20: Wire-Format Mature-Layer Audit Methodology
 
 > **Validated origin**: XRPL Sherlock April 2026 contest, Binary Serialization / Canonical-Form Attacks domain. 8-agent /dewaxguard thorough breadth on the SField + STObject + STAmount + STParsedJSON + STTx + Serializer layer. Result: 0 Medium+, 0 Low submittables. Domain produced 4 latent informational properties, all REFUTED-FOR-CONTEST. Methodology validated against a structurally-sound serialization framework: the most valuable output was the plan exit-criterion table (35/35 NEW SFields PASS 4 dimensions), not findings.

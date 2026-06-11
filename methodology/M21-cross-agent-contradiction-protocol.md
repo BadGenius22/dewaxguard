@@ -1,3 +1,12 @@
+---
+id: M-21
+name: cross-agent-contradiction-protocol
+trigger_type: process
+trigger_event: "merge step of a multi-reviewer pipeline yields contradictory verdicts or a lone-flagger on the same code surface"
+trigger_languages: [all]
+applies_to_protocol_types: [any]
+---
+
 # M-21: Cross-Agent Contradiction Protocol with Mandatory Source-Code Arbitration
 
 **Origin**: XRPL Sherlock April 2026, Domain 17 / Domain 18 — surfaced when two breadth agents disagreed on the same code surface (one REFUTED based on a partial code read; another CONFIRMED based on a fuller code read). The merge orchestrator's instinct was to defer to majority vote, which would have produced a wrong refutation. Source-code direct arbitration overrode the agent verdicts and produced **L-35 — a Low submittable finding that all 7 other breadth agents missed**. Without this protocol, L-35 would have been silently dropped at the merge step.

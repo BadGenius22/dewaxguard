@@ -12,6 +12,27 @@ user-invocable: false
 
 ---
 
+## ⛔ MANDATORY: run BLIND (v1.21.0)
+
+The committed benchmark sources contain answer-leaking comments (`// VULNERABLE: ...`, `// SAFE: false positive trap`). **Auditing them directly measures reading comprehension, not bug-finding — the recall number is worthless.** Before ANY benchmark run you MUST strip the answers:
+
+```bash
+# 1. Produce answer-blind copies (comments stripped; ground-truth.json NOT copied)
+BLIND=$(scripts/blind_benchmark.sh --out /tmp/dgblind)     # all benchmarks
+#   or:  scripts/blind_benchmark.sh --out /tmp/dgblind evm-share-inflation solana-missing-signer
+
+# 2. Run the breadth/depth agents on $BLIND/<id>/src  (NEVER on benchmarks/<id>/src)
+
+# 3. Score the agent output against the (unseen) ground truth
+scripts/score_benchmark.py <agent_output.txt> benchmarks/<id>/ground-truth.json
+#   -> Recall: F/N | Traps clean: C/T | severity deltas per finding
+#   exit 0 iff recall==100% AND no trap triggered (CI-gateable)
+```
+
+`scripts/selfcheck.sh` regression-guards that `blind_benchmark.sh` removes every answer keyword. **Two banned anti-patterns**: (a) auditing the un-stripped source, (b) editing a `ground-truth.json` to match agent output — oracles are corrected only when the code is independently re-read and the oracle is provably wrong, always with an `_oracle_review` note (see the v1.21.0 Sui correction). See `ACCURACY.md`.
+
+---
+
 ## Benchmark Directory Structure
 
 ```

@@ -110,11 +110,11 @@ If you want to ship over a sprint: Tier 1 (#1, #2, #3) + Tier 2 #4. That's: hard
 | Tier | Item | Status | Owner |
 |---|---|---|---|
 | 1.1 | Mandatory session-start load | SHIPPED (commit: 4130be6) | — |
-| 1.2 | Trigger-pattern matching | NOT_STARTED | — |
-| 1.3 | Negative-results retrieval | NOT_STARTED | — |
-| 2.4 | Mandatory Phase A retrospective | NOT_STARTED | — |
-| 2.5 | Wire up evals/ | NOT_STARTED | — |
-| 2.6 | Cross-language analog enforcement | NOT_STARTED | — |
+| 1.2 | Trigger-pattern matching | SHIPPED (v1.20.0 — `trigger_*` frontmatter on all 25 M-templates + `scripts/match_methodologies.sh` + SKILL.md preflight Step 3) | — |
+| 1.3 | Negative-results retrieval | SHIPPED (v1.20.0 — `refuted/INDEX.md` with RF-01..RF-11, structural-reason + re-check-precondition format, amendment rule) | — |
+| 2.4 | Mandatory Phase A retrospective | SHIPPED (v1.20.0 — SKILL.md "POST-AUDIT: PHASE A RETROSPECTIVE GATE"; DEFERRED-row obligation for pending contest results) | — |
+| 2.5 | Wire up evals/ | NOT_STARTED (partial: `benchmarks/` + `improve/BENCHMARK.md` exist; cron-driven regression runs not wired) | — |
+| 2.6 | Cross-language analog enforcement | PARTIAL (v1.20.0 — `trigger_languages` + `applies_to_protocol_types` frontmatter ships the `applies_to:` half; per-template cross-language-section audit pending) | — |
 | 3.7 | Adversarial methodology-skeptic | NOT_STARTED | — |
 | 3.8 | Per-language platform-quirks auto-detect | NOT_STARTED | — |
 | 3.9 | Failure-mode database | NOT_STARTED | — |

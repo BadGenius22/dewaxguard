@@ -1,3 +1,12 @@
+---
+id: M-25
+name: v12-style-ai-auditor-dedup
+trigger_type: artifact
+trigger_glob: "*V12*.md *zellic*.md"
+trigger_languages: [all]
+applies_to_protocol_types: [any]
+---
+
 # M-25 — V12-style AI-auditor finding-index pre-grep
 
 > **Origin**: K2 Code4rena audit (2026-04 → 2026-05, Stellar Soroban). The audit shipped with Zellic V12 outputs as the official known-issue index: 183 findings across 3 files (Critical/High/Med-Low) totaling ~125k lines. Two false-positive findings (DD-5 "broken `update_atoken` caller forwarding" and L-09 "TTL-expiry → default-on-read") were investigated, PoC'd, written up, and only THEN discovered to be V12 duplicates. Combined wasted time: ~1.5 hours.

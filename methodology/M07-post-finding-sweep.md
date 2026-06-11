@@ -1,3 +1,12 @@
+---
+id: M-07
+name: post-finding-sweep
+trigger_type: process
+trigger_event: "after any finding is CONFIRMED whose root cause is a shared helper — fan out across all callers of that helper for analogous findings"
+trigger_languages: [all]
+applies_to_protocol_types: [any]
+---
+
 # M-07: Post-Finding Root-Cause Sweep
 
 **Origin**: XRPL Sherlock April 2026, L-14 sweep run that converted 1 open lead into an additional Medium finding (ESC-3) after ESC-1 validated F-13.

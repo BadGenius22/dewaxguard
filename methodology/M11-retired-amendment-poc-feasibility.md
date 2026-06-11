@@ -1,3 +1,12 @@
+---
+id: M-11
+name: retired-amendment-poc-feasibility
+trigger_type: code
+trigger_grep: "retire_feature|hardfork|deprecated|grandfathered|legacy_branch"
+trigger_languages: [all]
+applies_to_protocol_types: [any]
+---
+
 # M-11: Retired-Amendment PoC Feasibility Check
 
 **Origin**: XRPL Sherlock April 2026, Domain 7 (SPON-M1). A real code-level asymmetry in `SponsorshipTransfer` vs `SignerListSet` that would have been a Medium finding, but the pre-MultiSignReserve legacy code branch is unreachable via public transactions in a test environment because `MultiSignReserve` is `XRPL_RETIRE_FEATURE` (always-on, not disableable).

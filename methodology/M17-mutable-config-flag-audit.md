@@ -1,3 +1,11 @@
+---
+id: M-17
+name: mutable-config-flag-audit
+trigger_type: code
+trigger_grep: "set_?(fee|config|param|paused|authority|admin|flag|rate|limit|threshold|owner|guardian)|upgrade[_]?(to|able)|_implementation|\buups\b|transparent(upgradeable)?proxy|delegatecall|transferfeeconfig|upgrade_authority|set_authority|issuance[_ ]?set|\blsmf|feature[_ ]?flag"
+trigger_languages: [all]
+applies_to_protocol_types: [any]
+---
 # M-17 — Mutable-Configuration-Flag Audit
 
 > **Purpose**: systematic methodology for auditing any protocol that allows post-deployment mutation of configuration flags or parameters that affect EXISTING on-chain state. Triggers on proxy upgradeable contracts, mutable object types, governance-controlled parameters, dynamic feature flags, and any pattern where the configuration tier is decoupled from the value tier.

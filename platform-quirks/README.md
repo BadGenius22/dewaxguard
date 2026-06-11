@@ -14,12 +14,14 @@ This directory captures those quirks in a central, durable location so future au
 platform-quirks/
 ├── README.md            — this file
 ├── stellar.md           — Stellar / Soroban quirks
-├── ethereum.md          — Ethereum / EVM quirks (stub)
-├── solana.md            — Solana / Anchor quirks (stub)
-├── aptos.md             — Aptos Move quirks (stub)
-├── sui.md               — Sui Move quirks (stub)
-└── cross-platform.md    — common misconceptions that bite multiple platforms
+├── stellar.md           — Stellar / Soroban quirks (full — archive-restore semantics)
+├── sui.md               — Sui Move quirks (full — shared-object serialization etc., v1.21.0)
+├── cpp.md               — C/C++ consensus-node quirks (full — rippled/XRPL)
+├── rust.md              — Rust node-client quirks (Solana/Soroban/CosmWasm/Substrate)
+└── go.md                — Go L1 node-client quirks
 ```
+
+> Solana/Anchor and Aptos Move do not yet have dedicated quirks files; their false-positive-class knowledge lives in `refuted/INDEX.md` and the per-language `prompts/{lang}/` templates until a dedicated file is warranted.
 
 ## Usage
 
