@@ -113,13 +113,20 @@ If you want to ship over a sprint: Tier 1 (#1, #2, #3) + Tier 2 #4. That's: hard
 | 1.2 | Trigger-pattern matching | SHIPPED (v1.20.0 — `trigger_*` frontmatter on all 25 M-templates + `scripts/match_methodologies.sh` + SKILL.md preflight Step 3) | — |
 | 1.3 | Negative-results retrieval | SHIPPED (v1.20.0 — `refuted/INDEX.md` with RF-01..RF-11, structural-reason + re-check-precondition format, amendment rule) | — |
 | 2.4 | Mandatory Phase A retrospective | SHIPPED (v1.20.0 — SKILL.md "POST-AUDIT: PHASE A RETROSPECTIVE GATE"; DEFERRED-row obligation for pending contest results) | — |
-| 2.5 | Wire up evals/ | NOT_STARTED (partial: `benchmarks/` + `improve/BENCHMARK.md` exist; cron-driven regression runs not wired) | — |
-| 2.6 | Cross-language analog enforcement | PARTIAL (v1.20.0 — `trigger_languages` + `applies_to_protocol_types` frontmatter ships the `applies_to:` half; per-template cross-language-section audit pending) | — |
-| 3.7 | Adversarial methodology-skeptic | NOT_STARTED | — |
-| 3.8 | Per-language platform-quirks auto-detect | NOT_STARTED | — |
-| 3.9 | Failure-mode database | NOT_STARTED | — |
+| 2.5 | Wire up evals/ | SHIPPED (v1.22.0 — `scripts/run_benchmarks.sh`: `--prep`/`--score`/`--check` modes, blind prep + aggregate scoring + CI exit code; benchmark corpus widened to 5 language trees) | — |
+| 2.6 | Cross-language analog enforcement | SHIPPED (v1.22.0 — `selfcheck.sh` #12 enforces a cross-language section on every multi-language code-triggered M-template; all 25 templates pass) | — |
+| 3.7 | Adversarial methodology-skeptic | SHIPPED (v1.22.0 — `agents/methodology-adversary.md`, wired as preflight Step 3 adversary gate; KEEP/DEMOTE/KILL with anti-over-correction self-check) | — |
+| 3.8 | Per-language platform-quirks auto-detect | SHIPPED (v1.22.0 — `scripts/detect_language.sh`: evidence-ordered build-file → LANGUAGE → quirks-file mapping; wired as Phase 1.0 Step 0) | — |
+| 3.9 | Failure-mode database | SHIPPED (v1.22.0 — `failure-modes/INDEX.md`: class-level gap map FM-NN, populated by improve Phase E, read at preflight as a gap map not a hypothesis list) | — |
 
 Update this table as items ship.
+
+## v1.22.0 closure note (2026-06-12)
+
+Tiers 1-3 are now fully SHIPPED. What remains is not feature work but maintenance:
+- **Corpus growth**: C/C++ is the only language tree without a benchmark (the 5 others now have ≥1). Add a `benchmarks/cpp/` seed when a clean, non-leaking consensus-node bug can be reduced to a ≤60-line harness.
+- **Tier 4 hard truths are ongoing, not one-shot**: #10 (template pruning) is governed by the `failure-modes/INDEX.md` archival rule and the anti-bloat gates; #11 (cross-language transfer validation) is now testable via `run_benchmarks.sh` once per-language benchmark coverage deepens; #12 (feedback-loop closure) is the Phase A retrospective gate, already mandatory.
+- **The open-loop risk is now measurement depth, not mechanism**: every plan mechanism exists; the residual question ACCURACY.md keeps honest is whether 6-8 toy benchmarks + real-audit retrospectives are a representative-enough signal. They are a smoke test, not a guarantee — that caveat is permanent.
 
 ## Origin
 

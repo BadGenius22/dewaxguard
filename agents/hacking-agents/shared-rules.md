@@ -85,6 +85,26 @@ The `group_key` enables deduplication: `ContractName | functionName | bug_class`
 
 **Mechanical dedup**: `scripts/dedup.py` (v1.12+) parses every `FINDING | ... | group_key: ...` block from agent output into the v1.0 findings_table schema, then merges duplicates via three stages: (A) exact `group_key`, (A2) same `contract`+`function` with bug_class/title overlap, (B) same file + line proximity, (C) cross-file bug_class token overlap. Ambiguous pairs (score 0.70–0.85) are surfaced for LLM tie-break only — most clusters resolve mechanically. Schema-aligned optional fields above improve dedup precision and feed `scripts/severity_router.py` directly.
 
+## Severity self-calibration (set `severity:` HOW, not by reflex)
+
+> **Why this is here**: blind benchmark v1.21.0 showed the breadth layer over-escalates by +1 tier on 4 of 6 findings (reentrancy/unchecked-return/missing-signer each tagged one tier too high). Auto-Critical on any drainable function inflates the whole pipeline's noise floor. You set `severity:` by DERIVING it, not by pattern-matching "fund loss → Critical".
+
+When you write a `severity:` field, derive it in two mechanical steps — do NOT skip to a tier by reflex:
+
+1. **Pick the two axes first** (`impact:` + `likelihood:`), then read the tier off the matrix:
+
+   | | Likelihood: High (no prereq, anyone) | Likelihood: Medium (specific state/role/order) | Likelihood: Low (complex setup) |
+   |---|---|---|---|
+   | **Impact: High** (direct theft / permanent lock) | Critical | High | Medium |
+   | **Impact: Medium** (conditional loss, protocol break) | High | Medium | Medium |
+   | **Impact: Low** (broken view, non-fund) | Medium | Low | Low |
+
+   `Critical` requires BOTH High impact AND High likelihood. A drainable function whose trigger needs a specific pre-state, a second actor, a particular ordering, or a non-trivial setup is **High at most**, not Critical — its likelihood is not "anyone, anytime".
+
+2. **Do not pre-apply downgrade modifiers** (trusted-actor −1, view-only cap, on-chain-only −1). Tag the raw axes + `realism_filter:` and let Phase 5d (`rules/severity-decision-tree.md` + `rules/realism-filter.md`) apply them once. Pre-applying them here double-counts.
+
+When unsure between two tiers, **pick the lower one and say so** in the finding (`severity: High  # not Critical: trigger needs first-depositor empty-vault state`). Sandbagging is corrected upward by depth/validator far more cheaply than inflation is corrected downward. A LEAD you under-rate still gets re-scored; a Critical you over-rate burns a verification slot.
+
 ## Inconsistency check (MANDATORY for every FINDING)
 
 For each FINDING, grep the full codebase for the CORRECT version of the pattern:

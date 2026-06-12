@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "severity": "High",
+      "class": "access-control",
+      "location": { "file": "src/token.rs", "line_start": 17, "line_end": 22 },
+      "description": "transfer() debits the `from` address's persistent balance without calling from.require_auth(); on Soroban this lets any caller move any address's funds — permissionless theft. The sibling burn() shows the correct require_auth pattern (inconsistency/precedent).",
+      "must_detect": true
+    }
+  ],
+  "false_positive_traps": [
+    {
+      "description": "burn() correctly calls from.require_auth() before debiting — it is the correct pattern and must NOT be flagged as missing-auth",
+      "location": { "file": "src/token.rs", "line_start": 27, "line_end": 31 }
+    }
+  ]
+}

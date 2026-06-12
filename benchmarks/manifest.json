@@ -72,6 +72,30 @@
       "lines_of_code": 50,
       "added_in": "1.2.0",
       "description": "Shared object state read-then-write without atomic guarantee"
+    },
+    {
+      "id": "aptos-auth-arg-confusion",
+      "name": "Auth Argument Confusion",
+      "language": "aptos",
+      "path": "aptos/auth-arg-confusion",
+      "difficulty": "medium",
+      "vulnerability_class": "access-control",
+      "expected_severity": "High",
+      "lines_of_code": 40,
+      "added_in": "1.22.0",
+      "description": "withdraw() authorizes against a caller-supplied owner argument instead of the transaction signer, allowing any attacker to drain any vault"
+    },
+    {
+      "id": "stellar-missing-require-auth",
+      "name": "Missing require_auth on transfer",
+      "language": "stellar",
+      "path": "stellar/missing-require-auth",
+      "difficulty": "easy",
+      "vulnerability_class": "access-control",
+      "expected_severity": "High",
+      "lines_of_code": 35,
+      "added_in": "1.22.0",
+      "description": "transfer() debits the from address without from.require_auth(), letting any caller move any address's balance; sibling burn() shows the correct pattern"
     }
   ]
 }

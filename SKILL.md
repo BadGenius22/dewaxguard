@@ -25,9 +25,12 @@ allowed-tools: Bash(*) Read(*) Write(*) Grep(*) Glob(*) Agent(*)
 7. `methodology/INDEX.md` — registry of M-NN templates with applicability metadata
 8. `platform-quirks/{detected_language}.md` — language-specific lessons (cpp, solidity, rust, move, etc.)
 9. `refuted/INDEX.md` — cross-audit refuted vulnerability classes. A hit kills a hypothesis ONLY if the entry's structural reason also holds in the current target (verify, then cite `RF-NN`)
+9a. `failure-modes/INDEX.md` (v1.22.0) — class-level miss ledger. Read as a **gap map, not a hypothesis list**: it tells you which analysis CLASS the detected language has historically been thin on, so you weight that class — never "look for THIS specific bug". A row with count ≥3 in the detected language is a standing methodology weakness; lean depth budget toward it.
 
-**Step 3 — Trigger-aware methodology selection** (v1.20.0):
-10. Run `scripts/match_methodologies.sh --src {SRC} --lang {LANGUAGE} --out $SCRATCHPAD` — it reads every M-template's `trigger_*` frontmatter, greps the audit codebase, and emits `$SCRATCHPAD/applicable-methodologies.md`. Read it and load the FIRED templates first; treat its process-type table as the per-stage methodology checklist.
+**Step 3 — Trigger-aware methodology selection** (v1.20.0; adversary gate v1.22.0):
+10. Run `scripts/detect_language.sh --src {SRC}` FIRST — it resolves `LANGUAGE` and the exact `platform-quirks/{lang}.md` to pass to every agent (mechanical, not from memory). Use its `LANGUAGE=` output for every `{LANGUAGE}` placeholder below and its `QUIRKS=` output for the mandatory per-agent quirks file. An `L1_CANDIDATE=yes` signal means consider `--l1` mode.
+11. Run `scripts/match_methodologies.sh --src {SRC} --lang {LANGUAGE} --out $SCRATCHPAD` — it reads every M-template's `trigger_*` frontmatter, greps the audit codebase, and emits `$SCRATCHPAD/applicable-methodologies.md`. Read it and load the FIRED templates first; treat its process-type table as the per-stage methodology checklist.
+12. **Adversary gate (v1.22.0)**: if `applicable-methodologies.md` lists ≥3 FIRED code/artifact templates, spawn `agents/methodology-adversary.md` (1 sonnet agent) BEFORE breadth. It argues each FIRED template does NOT apply here (structural-precondition / provenance-mismatch / anchoring-cost tests) and returns KEEP/DEMOTE/KILL. Load ONLY the KEEP set into breadth/depth prompts — this prevents a high-prestige template (e.g. M-08) firing on a keyword match and anchoring agents toward an absent bug shape. Process-type templates are never demoted. Skip the gate if <3 templates fired.
 
 ### Why this is mandatory
 
@@ -49,8 +52,11 @@ Before proceeding to audit work, verify:
 - [ ] LEARNED_INDEX.md was read (or absence noted)
 - [ ] methodology/INDEX.md was read
 - [ ] refuted/INDEX.md was read (cross-audit refuted classes)
+- [ ] failure-modes/INDEX.md was read (class-level gap map for the detected language)
+- [ ] `scripts/detect_language.sh` was run; LANGUAGE + QUIRKS resolved mechanically
 - [ ] `scripts/match_methodologies.sh` was run and `applicable-methodologies.md` was read
-- [ ] platform-quirks/{language}.md was read for the detected language
+- [ ] adversary gate applied (or noted <3 templates fired); only KEEP templates loaded into agent prompts
+- [ ] platform-quirks/{language}.md (= detect_language QUIRKS output) was read for the detected language
 - [ ] V12-style outputs were checked for via `scripts/grep_v12.sh --count` (if any exist, `--invalid-only` corpus was ingested per M-25)
 - [ ] Any per-domain SCOPE_HINT to be written next will reference DEEP_DIVE_PLAN.md as primary source
 
@@ -69,7 +75,7 @@ If any check fails, RE-READ the missing file. Do not proceed.
 ╚═════╝ ╚══════╝ ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝
 ```
 
-**v1.21.0** — Multi-language smart contract security auditor combining three methodologies:
+**v1.22.0** — Multi-language smart contract security auditor combining three methodologies:
 - **8 Specialized Hacking Agents** (breadth coverage) **+ 5 attacker-framing agents in thorough mode** (asymmetry, boundary, flow-gap, numerical-gap, trust-gap — v1.19.0)
 - **Nemesis Iterative Cross-Feed** (deep business logic + state inconsistency)
 - **Language-Specific Low-Level + Runtime Analysis** (what other auditors miss)
@@ -137,9 +143,13 @@ Detect language automatically:
 
 ### Phase 1.0 — Deterministic preprocessors (run BEFORE recon agents)
 
-Before spawning recon agents, the orchestrator runs two deterministic scripts that emit stable greppable artifacts. This replaces ad-hoc per-agent grep work, lowers token cost, and gives every downstream agent (breadth, depth, Nemesis, validator) the same source-of-truth artifacts.
+Before spawning recon agents, the orchestrator runs deterministic scripts that emit stable greppable artifacts. This replaces ad-hoc per-agent grep work, lowers token cost, and gives every downstream agent (breadth, depth, Nemesis, validator) the same source-of-truth artifacts.
 
 ```bash
+# 0. Resolve language + the mandatory platform-quirks file mechanically (v1.22.0).
+#    Use LANGUAGE for every {LANGUAGE} placeholder; pass QUIRKS to every agent.
+eval "$(scripts/detect_language.sh --src ./contracts | sed 's/=/=/')"   # sets LANGUAGE / QUIRKS / L1_CANDIDATE
+
 # 1. Build recon maps (per rules/docs-intent-map.md, rules/auth-critical-files.md)
 scripts/build_recon_maps.sh \
     --lang  $LANGUAGE \
@@ -480,6 +490,8 @@ dewaxguard/
 │   └── M{03..30}-*.md                #   code/artifact/process-triggered methodologies
 ├── refuted/
 │   └── INDEX.md                      # Cross-audit refuted classes RF-NN (v1.20.0, Tier 1 #3)
+├── failure-modes/
+│   └── INDEX.md                      # Class-level miss ledger FM-NN (v1.22.0, Tier 3.9) — gap map, not hypotheses
 ├── patterns/                         # Real-finding case studies, one dir per audit
 │   ├── INDEX.md
 │   └── xrpl-2026-04/
@@ -499,6 +511,7 @@ dewaxguard/
 │   ├── hacking-agents/               # Phase 3: 8 core + 5 thorough-only + shared-rules.md
 │   ├── nemesis/                      # Phase 4b.1: feynman.md + state-inconsistency.md
 │   ├── l1/                           # L1 mode: depth-consensus-invariant + depth-network-surface
+│   ├── methodology-adversary.md      # Preflight Step 3 gate (v1.22.0, Tier 3.7) — demotes mis-fired templates
 │   ├── depth-token-flow.md           # Phase 4b: standard depth agents
 │   ├── depth-state-trace.md / depth-edge-case.md / depth-external.md
 │   └── depth-lowlevel.md / depth-runtime.md   # language + runtime specific
@@ -512,9 +525,14 @@ dewaxguard/
 │                                     # plain-english-style, rag-validation-sweep, cross-class-preflight-firewall
 ├── scripts/
 │   ├── build_recon_maps.sh           # Phase 1.0 recon maps incl. M-29/M-30 detector flags
+│   ├── detect_language.sh            # Phase 1.0 Step 0: deterministic language + quirks resolution (v1.22.0)
 │   ├── match_methodologies.sh        # Preflight Step 3: trigger-aware methodology selection (v1.20.0)
 │   ├── parse_findings.py / dedup.py / severity_router.py   # Phase 4a mechanical pipeline (v1.12)
 │   ├── grep_v12.sh                   # M-25 V12-style known-issue dedup helper
+│   ├── blind_benchmark.sh            # Answer-blind benchmark prep (v1.21.0)
+│   ├── score_benchmark.py            # Mechanical benchmark scorer (v1.21.0)
+│   ├── run_benchmarks.sh             # End-to-end blind regression harness: prep + score + aggregate (v1.22.0)
+│   ├── selfcheck.sh                  # Skill-integrity gate — 13 checks (v1.22.0)
 │   ├── dewaxguard_driver.py          # Driver mode (v1.13+) with phase gates + crash resume
 │   ├── bake_l1.sh                    # L1 mode Phase 0.5 bake (ast-grep/opengrep indexing)
 │   ├── findings_table.schema.json

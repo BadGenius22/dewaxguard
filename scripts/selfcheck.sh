@@ -153,6 +153,38 @@ for gt in benchmarks/*/*/ground-truth.json; do
 done
 [ $do_fail -eq 0 ] && ok "all disputed oracles documented (or none disputed)"
 
+echo "== 12. Cross-language enforcement (Tier 2.6) =="
+# Every CODE-triggered template whose trigger_languages is multi-language (all, or
+# names >=2 langs) MUST carry a cross-language section. Single-language code
+# templates (e.g. M-29 [evm]) and process/artifact templates are exempt.
+xl_fail=0
+for f in methodology/M*.md; do
+  base=$(basename "$f")
+  fm=$(awk 'NR==1{next} /^---$/{exit} {print}' "$f")
+  ttype=$(printf '%s\n' "$fm" | sed -n 's/^trigger_type:[[:space:]]*//p' | head -1)
+  [ "$ttype" = code ] || continue
+  langs=$(printf '%s\n' "$fm" | sed -n 's/^trigger_languages:[[:space:]]*//p' | head -1)
+  # multi-language iff "all" OR contains a comma (2+ named langs)
+  multi=0
+  printf '%s' "$langs" | grep -qiE 'all' && multi=1
+  printf '%s' "$langs" | grep -q ',' && multi=1
+  [ "$multi" = 1 ] || continue
+  xlang=$(grep -ciE '^#+.*(cross-language|cross language|language analog|language mapping|language examples)' "$f")
+  [ "$xlang" -ge 1 ] || { fail "$base: code-triggered, multi-language ($langs) but has no cross-language section"; xl_fail=1; }
+done
+[ $xl_fail -eq 0 ] && ok "all multi-language code templates carry a cross-language section"
+
+echo "== 13. New-component references resolve (v1.22.0) =="
+nc_fail=0
+for p in agents/methodology-adversary.md failure-modes/INDEX.md scripts/detect_language.sh scripts/run_benchmarks.sh; do
+  [ -e "$p" ] || { fail "missing v1.22.0 component: $p"; nc_fail=1; }
+done
+# detect_language + run_benchmarks must be executable
+for s in scripts/detect_language.sh scripts/run_benchmarks.sh; do
+  [ -x "$s" ] || { fail "$s is not executable"; nc_fail=1; }
+done
+[ $nc_fail -eq 0 ] && ok "all v1.22.0 components present and executable"
+
 echo
 if [ $FAIL -eq 0 ]; then
   echo "SELFCHECK PASS — skill is internally consistent"

@@ -137,6 +137,7 @@ Present all proposals as a numbered list. Wait for user approval.
 ## Phase E: Implementation (approved changes only)
 
 1. Apply each approved change using Edit/Write tools
+1a. **Failure-mode ledger update** (Tier 3.9): for every MISSED finding that passed the RC-AGENT Exclusion Test as fix-eligible (RC-SCOPE/METHOD/DEPTH/CONTEXT), append or merge a row in `failure-modes/INDEX.md` — generic class + language + root cause + the fix that shipped (NO titles, locations, or protocol names). Merge into an existing class+language row (bump count, append source) rather than duplicating. RC-AGENT and RC-NOVEL misses do NOT get a row (RC-AGENT → nothing; RC-NOVEL → RAG). This is the only place the failure-mode DB grows.
 2. **Attack vector auto-update** (if user confirms):
    - For CONFIRMED findings not matching existing `attack-vectors.md` patterns
    - Add as generic class description in existing D:/FP: format

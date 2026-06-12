@@ -46,12 +46,14 @@ scripts/blind_benchmark.sh --out /tmp/blind        # strip answer comments, omit
 scripts/score_benchmark.py <agent_output> benchmarks/<id>/ground-truth.json
 ```
 
-`score_benchmark.py` reports **recall** (must_detect findings hit), **trap precision** (false-positive traps left clean), and **severity delta** (calibration). Latest baseline: `benchmarks/results/v1.21.0_2026-06-12.md` — 6/6 recall, 5/6 trap precision, a consistent +1 severity over-escalation at the breadth layer, and one corrected benchmark oracle.
+`score_benchmark.py` reports **recall** (must_detect findings hit), **trap precision** (false-positive traps left clean), and **severity delta** (calibration). `scripts/run_benchmarks.sh` wraps blind-prep + scoring + aggregation into one CI-gateable runner (`--prep` / `--score DIR` / `--check`). Latest baseline: `benchmarks/results/v1.21.0_2026-06-12.md` — 6/6 recall, 5/6 trap precision, a consistent +1 severity over-escalation at the breadth layer, and one corrected benchmark oracle.
+
+As of v1.22.0 the corpus is **8 benchmarks across 5 of 6 language trees** (3 EVM, 2 Solana, 1 Sui, 1 Aptos, 1 Stellar; C/C++ remains the only unmeasured tree). The +1 breadth over-escalation flagged by the v1.21.0 run is now addressed at its source by the "Severity self-calibration" rule in `shared-rules.md` (derive impact×likelihood, no pre-applied modifiers, sandbag on ties) — the next full benchmark run will measure whether the bias closed.
 
 ### Three rules that keep the measurement honest
 1. **Never audit a leaked benchmark.** Sources carry `// VULNERABLE:` comments; always run through `blind_benchmark.sh` first. `selfcheck.sh` regression-guards the stripper.
 2. **Never edit a ground truth to match agent output.** Oracles are corrected only when the code is independently re-read and the oracle is *wrong* (the v1.21.0 Sui fix: the claimed race is impossible on Sui; the real fund-lock bug was added). Every correction carries an `_oracle_review` note. Coaching the metric is a banned anti-pattern.
-3. **Report the caveats with the number.** 6 toy contracts, single breadth pass, three language trees unmeasured (Aptos/Stellar/C++ have no benchmark yet). A recall number is meaningless without its corpus.
+3. **Report the caveats with the number.** Toy contracts, single breadth pass; as of v1.22.0 only the C/C++ tree is unmeasured (Aptos + Stellar benchmarks added). A recall number is meaningless without its corpus.
 
 ## If you want higher real-world accuracy on a given audit
 - Run `thorough` mode (adds the 5 attacker-framing agents + Nemesis + full verification).
