@@ -358,9 +358,12 @@ Before including a finding in the final report, score it against the target plat
 1. **Gate 1 — Refutation**: Find the guard that kills the attack
    - **Sub-gate 1a — Docs intent check** (HARD, per `rules/docs-intent-map.md`): grep `{SCRATCHPAD}/docs-intent-map.md` for the function/feature; REJECT if the docs mark the behavior as `by design`/`intentional`/`accepted trade-off`/`out of scope`/`known limitation`. Emit `docs_intent_check:` field.
    - **Sub-gate 1b — Auth check** (when finding alleges missing auth, per `rules/auth-critical-files.md`): confirm whether the source file was emitted `[full-bodies]` or `[collapsed]`; if collapsed, the body must be Read before the finding can stand. Emit `auth_check:` field.
+   - **Sub-gate 1c — Source-NatSpec by-design kill** (HARD, per `references/judging.md` Gate 1): grep the contract's OWN source NatSpec/spec for the exact behavior. REJECT on an explicit `"Reverts if X"` (propagating it is specified, not a broken guarantee) or a parameter whose harmful effect IS its documented purpose. Emit `spec_kill:` field. This is the check that `docs-intent-map.md` (scratchpad-only) misses.
 2. **Gate 2 — Reachability**: Prove the vulnerable state exists in production
+   - **Sub-gate 2a — Enabler verification** (HARD, per `references/judging.md` Gate 2): verify EACH asserted enabler against code (file:line). REJECT if a load-bearing precondition is caller-supplied (victim controls it themselves) or does not exist as claimed. Emit `enabler_check:` field.
 3. **Gate 3 — Trigger**: Prove an unprivileged actor can execute
 4. **Gate 4 — Impact**: Prove material harm to identifiable victim
+   - **Sub-gate 4b — Opted-in disclosed-risk check** (HARD, per `references/judging.md` Gate 4): REJECT if harm hits only a party who voluntarily entered a permissionless, immutable, on-chain-visible market/pool/vault (no involuntary victim) — a real loss does NOT survive this. Emit `optin_check:` field.
    - **Sub-gate 4a — Severity decision tree** (HARD, per `rules/severity-decision-tree.md`): apply the a/b/c questions IN ORDER. The first YES determines severity. Emit `severity_check:` field. Findings whose claimed severity exceeds the tree result get a 10-30 point deduction in the validator score.
 
 ### Gate 4.5 — Submission-Slot Routing (Code4rena specific):

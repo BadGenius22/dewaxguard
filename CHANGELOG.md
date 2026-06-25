@@ -1,5 +1,13 @@
 # DewaxGuard Changelog
 
+## [1.23.0] - 2026-06-25
+
+**Origin**: Field calibration from a live Cantina submission (Morpho Midnight) where 9/9 findings were rejected despite a standalone validator predicting 0 rejections. Root cause: the validator (and dewaxguard's Phase 5d gate) scored writeup quality, not bug reality — it had no by-design/source-NatSpec kill, no enabler-fabrication check, and no opted-in-disclosed-risk kill. This release ports those three checks from the bug-validator Reality Gate INTO dewaxguard's own end-of-pipeline gate, so the pipeline is self-sufficient (no separate bug-validator skill needed). Methodology only — no stored bug patterns.
+
+### Changed
+- **`references/judging.md`** — hardened the 4 gates: Gate 1 adds a **by-design / source-NatSpec kill** (explicit `"Reverts if X"` and documented-parameter-effect are specified behavior, not bugs; "no guardrail on a documented-effect param" is a doc note); Gate 2 adds **enabler verification** (reject preconditions that are caller-supplied or unverified against code); Gate 4 adds **opted-in disclosed-risk** (harm only to a voluntary participant in an immutable, permissionless, on-chain-visible market = no involuntary victim → reject, even if the loss is real). Added a header note: a single REJECT/DEMOTE is final — legitimacy ≠ submittability.
+- **`SKILL.md` Phase 5d** — wired the three checks as HARD sub-gates 1c (source-NatSpec by-design kill), 2a (enabler verification), 4b (opted-in disclosed-risk), mirroring the existing 1a/1b/4a pattern.
+
 ## [1.22.0] - 2026-06-12
 
 **Origin**: Direct follow-up to v1.21.0 ("improve this skill to ultimate and absolute peak optimal"). v1.21.0 built the honest-accuracy machinery and ran the first blind benchmark; that run flagged a +1 severity over-escalation at the breadth layer and two unmeasured language trees. This release closes the four remaining NOT_STARTED / PARTIAL items in the self-improvement plan (Tiers 2.5, 2.6, 3.7, 3.8, 3.9), fixes the flagged calibration bias at its source, and widens benchmark coverage from 3 to 5 language trees. Every change is methodology or mechanism — no stored bug patterns. `selfcheck.sh` is green (13 checks, up from 11).
