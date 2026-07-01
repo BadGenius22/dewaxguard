@@ -89,6 +89,24 @@
 - **Caveat**: Sui *equivocation / object-version contention* (liveness/grief when a sender double-spends an owned-object version) is a real and DISTINCT concern — do not use this entry to dismiss it.
 - **Source**: v1.21.0 blind benchmark (`sui-shared-object-race`); see `platform-quirks/sui.md` #1
 
+### RF-13 — Flash-mint / flash-loan supply spike cannot move downstream pricing (internal-counter accounting)
+- **Scope**: EVM stablecoin / vault / lending protocols that mint a token via flash-loan or flash-mint
+- **Structural reason**: when redemption payout, share price, and collateral-ratio are computed from an **internal accounting counter** (e.g. `normalizedStables`, an owned-asset counter, a vesting `totalAssets` accumulator) rather than `token.totalSupply()` / `balanceOf(vault)`, flash-minted tokens are invisible to those computations — the attacker inflates supply but every price/ratio it wants to move reads a counter the mint never touched. Flash conservation (mint → … → burn, atomic; shortfall reverts) leaves no residual supply either. (Angle Transmuter defense, preserved by Parallel; same shape in Strata / Royco NAV engines.)
+- **Re-check before transfer**: Does the target price the value-moving computation off an **internal counter** (refutation transfers) or off `totalSupply()` / `balanceOf` (class LIVE — flash-mint / donation CAN move it)? Grep the pricing function for `totalSupply`/`balanceOf` vs a storage counter; ONE `balanceOf`-based reader keeps the class live.
+- **Source**: Parallel (Angle Transmuter fork) 2026-07; Strata, Royco 2026-06
+
+### RF-14 — ERC4626 first-depositor / donation share-inflation neutralised by a locked share floor
+- **Scope**: EVM ERC4626 (or ERC4626-like) vaults
+- **Structural reason**: the classic inflation attack needs the vault reachable to a near-empty state (tiny `totalSupply`) so a donation rounds a victim's shares to 0. Refuted when the vault **bakes a permanently-locked non-zero share floor at `initialize`** (mints initial shares to `address(this)` / a burn address, never transferable or burnable) and/or uses the OZ **virtual-shares `_decimalsOffset`**. Either makes the empty precondition unreachable, so the round-to-zero cannot occur. (Angle/Parallel Savings, Strata Tranche, Royco.)
+- **Re-check before transfer**: Does `initialize`/first-deposit mint a locked floor to a non-withdrawable address, AND/OR is a virtual-shares offset active? If the vault can be driven back to empty (floor burnable, no offset) → class LIVE. **Caveat**: refutes the *inflation* shape only — a subtler donation-**accounting** variant can survive (two firms re-audited Parallel Savings donation in June-2026); still run a targeted donation trace, don't blanket-dismiss.
+- **Source**: Parallel Savings, Strata, Royco 2026-06/07
+
+### RF-15 — NAV / tranche split rounding-leak refuted by a hard conservation `require`
+- **Scope**: EVM tranche / CDO / multi-bucket NAV accounting
+- **Structural reason**: when every state-mutating split path terminates in a hard equality guard — `require(sum_of_parts == total)` (Strata `revert InvalidNavSplit`, Royco NAV-conservation asserts, Parallel `getCollateralRatio` buffer guard) — a rounding/precision error cannot *leak* value: it nets to zero (dust shifts between buckets, conserved) or trips the require and **reverts**. So "rounding bug drains X" refutes to at most a DoS.
+- **Re-check before transfer**: Is there a hard equality/conservation guard on EVERY split/mutation **write** path (refutation transfers — downgrade rounding findings to DoS-at-most), or is any path unguarded / only soft-clamped (`min`/`saturatingSub` with no final equality check)? An unguarded path is LIVE for value leak; a guard on a view only does not count.
+- **Source**: Strata Accounting, Royco, Parallel 2026-06/07
+
 ## How agents use this index
 
 1. **At hypothesis generation** (breadth/depth): grep this file for class keywords before writing the hypothesis into the work queue. On hit → read the entry → verify the structural reason against the CURRENT target → either discard (reason holds; cite `RF-NN` in the refutation log) or proceed (reason absent; note "RF-NN does not transfer because …").

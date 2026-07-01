@@ -79,7 +79,7 @@ esac
 
 # --- resolve the quirks file the orchestrator MUST load ---
 case "$LANGUAGE" in
-  evm)     QUIRKS="$SKILL/platform-quirks/README.md" ;;   # no evm-specific file; README indexes
+  evm)     QUIRKS="$SKILL/platform-quirks/solidity.md" ;;  # EVM/Solidity family defenses (v1.22.1)
   solana)  QUIRKS="$SKILL/platform-quirks/rust.md" ;;
   stellar) QUIRKS="$SKILL/platform-quirks/stellar.md" ;;
   sui)     QUIRKS="$SKILL/platform-quirks/sui.md" ;;
