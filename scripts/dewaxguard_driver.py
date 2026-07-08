@@ -29,12 +29,21 @@ Invocation:
       --src ./contracts \
       --audit-id myproj-2026-05 \
       [--backend claude|codex] \
+      [--commander-model opus|fable] \
       [--resume] [--phase recon|breadth|...] [--retry-budget 2]
 
 The driver itself does NOT spawn agents directly via the Task tool — only the
 phase subprocesses do. The driver is a control-plane process: it orchestrates,
 gates, and checkpoints. Phase subprocesses are the data-plane: they read source,
 write findings, and call MCP/tools.
+
+Model tiering (rules/model-tiering.md): each phase's `claude -p` subprocess runs
+at a tier chosen by role. High-token / low-judgment WORKERS (verify PoC + code
+trace) and fan-out DISPATCHERS run cheap (sonnet/haiku); the finding sub-agents
+those dispatchers spawn keep their own tier (opus in core/thorough) via the
+model= literals in the phase prompts, so recall is unaffected. The validator
+DECISION GATE runs at the commander tier (--commander-model, default opus; set
+fable for the ClaudeDevs "premium advisor at decision points" pattern).
 """
 
 from __future__ import annotations
@@ -65,6 +74,16 @@ class Phase:
     l1_only: bool = False  # if True, this phase runs ONLY when --l1 is set
     sc_only: bool = False  # if True, this phase runs ONLY when --l1 is NOT set
     l1_template: str | None = None  # override template path when --l1 is set
+    # Model tier for THIS phase's `claude -p` subprocess. See rules/model-tiering.md.
+    #   "haiku"/"sonnet" — cheap: mechanical steps and fan-out DISPATCHERS. The
+    #     dispatcher only coordinates; the premium finding work happens in the
+    #     Task sub-agents it spawns (their model= is set in the phase prompt and
+    #     is independent of the parent subprocess model).
+    #   "opus" — finding tier: phases whose reasoning happens in the subprocess
+    #     itself (not delegated to sub-agents) and must not be down-tiered.
+    #   "commander" — decision gate: resolved at run time to --commander-model
+    #     (default "opus"; pass "fable" to enable the advisor pattern here).
+    model: str = "sonnet"
 
 # Order matters: the driver runs phases in registry order.
 PHASES: list[Phase] = [
@@ -74,6 +93,7 @@ PHASES: list[Phase] = [
         required_outputs=["scratchpad/preflight.md"],
         timeout_seconds=900,
         gates=["content_check"],
+        model="haiku",  # mechanical setup
     ),
     Phase(
         name="recon",
@@ -86,6 +106,7 @@ PHASES: list[Phase] = [
         ],
         timeout_seconds=3600,
         gates=["content_check"],
+        model="sonnet",  # dispatcher; deep recon sub-agents stay opus via prompt literals
     ),
     Phase(
         name="bake",
@@ -97,6 +118,7 @@ PHASES: list[Phase] = [
         timeout_seconds=900,
         gates=["content_check"],
         l1_only=True,  # L1 mode only — runs between recon and breadth
+        model="haiku",  # ast-grep/opengrep batch indexing — mechanical
     ),
     Phase(
         name="breadth",
@@ -104,6 +126,8 @@ PHASES: list[Phase] = [
         required_outputs=["scratchpad/analysis_*.md"],  # glob
         timeout_seconds=3600,
         gates=["content_check", "coverage_check"],
+        model="sonnet",  # DISPATCHER only; the 8-13 finding sub-agents keep their
+                         # tier (opus in core/thorough) via 30_breadth.md's table
     ),
     Phase(
         name="inventory",
@@ -114,6 +138,7 @@ PHASES: list[Phase] = [
         ],
         timeout_seconds=600,
         gates=["content_check"],
+        model="sonnet",  # mostly deterministic; only ambiguous-pair dedup uses a haiku sub-agent
     ),
     Phase(
         name="niche",
@@ -121,6 +146,7 @@ PHASES: list[Phase] = [
         required_outputs=["scratchpad/niche_summary.md"],
         timeout_seconds=3600,
         gates=["content_check"],
+        model="sonnet",  # dispatcher; niche finding sub-agents keep their tier via prompt literals
     ),
     Phase(
         name="depth",
@@ -129,6 +155,8 @@ PHASES: list[Phase] = [
         required_outputs=["scratchpad/depth_*_findings.md"],  # glob; ≥1 required
         timeout_seconds=5400,  # 90min — 6 parallel agents
         gates=["content_check"],
+        model="sonnet",  # DISPATCHER only; the 6 depth finding sub-agents keep their
+                         # tier (opus in core/thorough) via 45_depth*.md literals
     ),
     Phase(
         name="nemesis",
@@ -137,6 +165,8 @@ PHASES: list[Phase] = [
         timeout_seconds=7200,  # 2hr — up to 6 sequential cross-feed passes
         gates=["content_check"],
         mode_min="thorough",
+        model="opus",  # finding tier: iterative Feynman <-> State cross-feed reasoning
+                       # runs in-subprocess and is recall-sensitive — do not down-tier
     ),
     Phase(
         name="chain",
@@ -147,6 +177,8 @@ PHASES: list[Phase] = [
         ],
         timeout_seconds=2400,  # 40min — 2 sequential agents
         gates=["content_check"],
+        model="sonnet",  # dispatcher; the 2 compound-attack synthesis sub-agents keep
+                         # their tier (opus in core/thorough) via 47_chain.md's prose
     ),
     Phase(
         name="verify",
@@ -155,6 +187,8 @@ PHASES: list[Phase] = [
         timeout_seconds=3600,
         gates=["content_check"],
         mode_min="core",
+        model="sonnet",  # WORKER: high-token, lower-judgment PoC/code-trace work runs
+                         # entirely in this subprocess — the main cost win (was default/opus)
     ),
     Phase(
         name="validator",
@@ -166,6 +200,9 @@ PHASES: list[Phase] = [
         timeout_seconds=1800,
         gates=["content_check"],
         mode_min="core",
+        model="commander",  # DECISION GATE: low-token, high-judgment platform scoring
+                            # runs in-subprocess. opus by default; --commander-model fable
+                            # applies the ClaudeDevs "advisor at decision points" pattern
     ),
     Phase(
         name="report",
@@ -173,6 +210,7 @@ PHASES: list[Phase] = [
         required_outputs=["AUDIT_REPORT.md"],
         timeout_seconds=1800,
         gates=["content_check"],
+        model="sonnet",  # dispatcher; the Critical+High writer stays opus via 60_report.md
     ),
 ]
 
@@ -196,6 +234,12 @@ class DriverState:
     dry_run: bool
     skip_gates: bool = False
     l1: bool = False  # L1 mode — adds Bake phase, swaps depth template for L1 dispatcher
+    commander_model: str = "opus"  # resolves Phase.model=="commander" (decision gates).
+                                   # "fable" enables the ClaudeDevs advisor pattern there.
+
+    def phase_model(self, phase: Phase) -> str:
+        """Resolve a phase's subprocess model tier to a concrete `claude` alias."""
+        return self.commander_model if phase.model == "commander" else phase.model
 
     @property
     def manifest_path(self) -> Path:
@@ -286,8 +330,13 @@ def invoke_phase(state: DriverState, phase: Phase, retry_n: int = 0, retry_hint:
 
     prompt = instantiate_template(template_path, state, phase, extra={"RETRY_HINT": retry_hint or ""})
 
+    phase_model = state.phase_model(phase)
+
     transcript_path = state.driver_dir / f"transcript_{phase.name}_{retry_n}.md"
-    transcript_path.write_text(f"# Phase: {phase.name} (retry {retry_n})\n\n## Prompt\n\n{prompt}\n\n## Output\n\n")
+    transcript_path.write_text(
+        f"# Phase: {phase.name} (retry {retry_n}, model={phase_model})\n\n"
+        f"## Prompt\n\n{prompt}\n\n## Output\n\n"
+    )
 
     backend_bin = shutil.which(state.backend)
     if not backend_bin:
@@ -295,8 +344,13 @@ def invoke_phase(state: DriverState, phase: Phase, retry_n: int = 0, retry_hint:
 
     # Backend dispatch — for v1.13 we support claude and codex
     if state.backend == "claude":
-        cmd = [backend_bin, "-p", prompt, "--output-format", "stream-json", "--verbose"]
+        # Per-phase model tiering (rules/model-tiering.md): workers/dispatchers run
+        # cheap, the finding sub-agents they spawn keep their own tier, and decision
+        # gates run at the commander tier.
+        cmd = [backend_bin, "-p", prompt, "--model", phase_model,
+               "--output-format", "stream-json", "--verbose"]
     elif state.backend == "codex":
+        # codex uses different model aliases; leave selection to the codex default.
         cmd = [backend_bin, "exec", prompt]
     else:
         return {"phase": phase.name, "status": "error", "error": f"unsupported backend: {state.backend}"}
@@ -304,11 +358,12 @@ def invoke_phase(state: DriverState, phase: Phase, retry_n: int = 0, retry_hint:
     if state.dry_run:
         # store a stable cmd summary, not the literal prompt (which is already
         # in transcript_path)
-        cmd_summary = f"{state.backend} -p [{len(prompt)} bytes prompt at {transcript_path}]"
+        cmd_summary = f"{state.backend} -p --model {phase_model} [{len(prompt)} bytes prompt at {transcript_path}]"
         rec = {
             "phase": phase.name,
             "retry": retry_n,
             "status": "dry_run",
+            "model": phase_model,
             "cmd": cmd_summary,
             "prompt_bytes": len(prompt),
             "started_at": _now_iso(),
@@ -333,6 +388,7 @@ def invoke_phase(state: DriverState, phase: Phase, retry_n: int = 0, retry_hint:
             "phase": phase.name,
             "retry": retry_n,
             "status": "ok" if result.returncode == 0 else "exit_nonzero",
+            "model": phase_model,
             "exit_code": result.returncode,
             "elapsed_s": round(elapsed, 1),
             "transcript": str(transcript_path),
@@ -345,6 +401,7 @@ def invoke_phase(state: DriverState, phase: Phase, retry_n: int = 0, retry_hint:
             "phase": phase.name,
             "retry": retry_n,
             "status": "timeout",
+            "model": phase_model,
             "elapsed_s": phase.timeout_seconds,
             "transcript": str(transcript_path),
         }
@@ -381,7 +438,8 @@ def run_pipeline(state: DriverState, only: list[str] | None = None, resume: bool
 
     phases = select_phases(state.mode, only, l1=state.l1)
     l1_tag = " [L1]" if state.l1 else ""
-    print(f"[driver]{l1_tag} audit_id={state.audit_id} mode={state.mode} backend={state.backend} phases={[p.name for p in phases]}", file=sys.stderr)
+    phase_models = [f"{p.name}:{state.phase_model(p)}" for p in phases]
+    print(f"[driver]{l1_tag} audit_id={state.audit_id} mode={state.mode} backend={state.backend} commander={state.commander_model} phases={phase_models}", file=sys.stderr)
 
     overall = 0
     for phase in phases:
@@ -406,9 +464,9 @@ def run_pipeline(state: DriverState, only: list[str] | None = None, resume: bool
             state.save_manifest(manifest)
 
             if rec["status"] not in ("ok", "dry_run"):
-                print(f"[driver] {phase.name}: subprocess {rec['status']}; gates={passed}", file=sys.stderr)
+                print(f"[driver] {phase.name} ({rec.get('model','?')}): subprocess {rec['status']}; gates={passed}", file=sys.stderr)
             else:
-                print(f"[driver] {phase.name}: subprocess ok in {rec.get('elapsed_s','?')}s; gates={passed}", file=sys.stderr)
+                print(f"[driver] {phase.name} ({rec.get('model','?')}): subprocess ok in {rec.get('elapsed_s','?')}s; gates={passed}", file=sys.stderr)
 
             if passed and rec["status"] in ("ok", "dry_run"):
                 state.mark_complete(phase.name, {"retry_n": retry_n, "at": _now_iso()})
@@ -436,6 +494,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--project-root", type=Path, default=None, help="Project root (default: --src parent).")
     ap.add_argument("--audit-id", default=None, help="Stable audit identifier (default: derived from src+date).")
     ap.add_argument("--backend", choices=["claude", "codex"], default="claude")
+    ap.add_argument("--commander-model", choices=["sonnet", "opus", "fable"], default="opus",
+                    help="Model for decision-gate phases (Phase.model=='commander', e.g. the "
+                         "validator). Default 'opus'. Pass 'fable' to apply the ClaudeDevs "
+                         "'premium advisor at decision points' pattern. See rules/model-tiering.md.")
     ap.add_argument("--skill-root", type=Path, default=skill_root_default)
     ap.add_argument("--scratchpad", type=Path, default=None,
                     help="Scratchpad dir (default: <project_root>/scratchpad).")
@@ -477,6 +539,7 @@ def main(argv: list[str] | None = None) -> int:
         dry_run=args.dry_run,
         skip_gates=args.skip_gates,
         l1=args.l1,
+        commander_model=args.commander_model,
     )
     return run_pipeline(state, only=args.phase, resume=args.resume)
 

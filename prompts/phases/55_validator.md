@@ -2,6 +2,8 @@
 
 > Fresh `claude -p` subprocess. No prior context. Treat this prompt as your entire task.
 > This phase runs AFTER verify (Phase 5) and BEFORE report (Phase 6).
+>
+> **Model tier: commander / decision gate.** Per `rules/model-tiering.md`, this phase runs at the commander tier (`--commander-model`, default `opus`; `fable` applies the ClaudeDevs "premium advisor at decision points" pattern). Platform accept/reject scoring is low-token, high-judgment — exactly the kind of bounded, verifiable decision where the strongest model earns its cost. Do all scoring in this subprocess; do not spawn sub-agents.
 
 ## Audit context
 

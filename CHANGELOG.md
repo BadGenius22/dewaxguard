@@ -1,5 +1,18 @@
 # DewaxGuard Changelog
 
+## [1.24.0] - 2026-07-08
+
+**Origin**: ClaudeDevs multi-model cost patterns (advisor / orchestrator — premium model only at decision points; cheaper models for the token-heavy bulk). dewaxguard already tiered finding sub-agents by phase but ran every driver subprocess at one uniform default model, so the "cheap executor" idea was unrealized at the phase level. This release adds per-phase subprocess tiering in the deterministic driver, split by role, with the finding agents deliberately left untouched (security auditing is recall-sensitive — the coding/research benchmarks those patterns come from are not). Methodology/mechanism only — no stored bug patterns.
+
+### Added
+- **`rules/model-tiering.md`** — the per-phase cost/recall policy: three tiers (worker `sonnet`/`haiku`, finding `opus`, commander `--commander-model`), how the ClaudeDevs advisor/orchestrator patterns map onto the pipeline, the recall caveat that keeps finding agents premium, and the do-nots. Documents that a phase subprocess model is independent of the `Task` sub-agent `model=` it spawns — the mechanism that lets dispatchers run cheap without touching recall.
+- **`scripts/dewaxguard_driver.py`** — `--commander-model {sonnet,opus,fable}` (default `opus`) resolving the decision-gate tier; pass `fable` to run the bug-validator gate on Fable 5 (the ClaudeDevs "premium advisor at decision points" pattern) with no other Fable spend.
+
+### Changed
+- **`scripts/dewaxguard_driver.py`** — `Phase.model` per-phase tier added to the registry and passed as `--model` to each `claude -p` subprocess (was: no `--model`, uniform default). Workers/dispatchers → `sonnet`/`haiku` (preflight/bake `haiku`; recon/breadth/inventory/niche/depth/chain/report/verify `sonnet`); finding-tier in-subprocess `nemesis` → `opus`; validator → commander tier. Resolved model is recorded in the manifest, transcript header, and driver log lines. The finding sub-agents' `model=` literals in the phase prompts are unchanged, so recall is unaffected.
+- **`prompts/phases/50_verify.md`**, **`prompts/phases/55_validator.md`** — header notes documenting each phase's tier (worker vs decision gate) and that it does its work in-subprocess (no sub-agent spawning).
+- **`SKILL.md`** — Modes section notes the driver's per-phase tiering and the `--commander-model fable` advisor toggle.
+
 ## [1.23.0] - 2026-06-25
 
 **Origin**: Field calibration from a live Cantina submission (Morpho Midnight) where 9/9 findings were rejected despite a standalone validator predicting 0 rejections. Root cause: the validator (and dewaxguard's Phase 5d gate) scored writeup quality, not bug reality — it had no by-design/source-NatSpec kill, no enabler-fabrication check, and no opted-in-disclosed-risk kill. This release ports those three checks from the bug-validator Reality Gate INTO dewaxguard's own end-of-pipeline gate, so the pipeline is self-sufficient (no separate bug-validator skill needed). Methodology only — no stored bug patterns.
