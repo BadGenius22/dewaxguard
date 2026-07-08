@@ -1,5 +1,37 @@
 # DewaxGuard Changelog
 
+## [1.25.0] - 2026-07-08
+
+**Origin**: Repo-wide code review (three parallel reviewers over the Python scripts, shell scripts, and driver↔prompt↔gate consistency). This release fixes the high-confidence, low-risk correctness bugs the review surfaced; a set of architectural findings that need a live pipeline run or a design decision were reported separately, not auto-fixed. Selfcheck stays green (now 13 checks, with the blind-stripper gate hardened to honor exit codes). Mechanism/robustness only — no stored bug patterns.
+
+### Changed
+- **`scripts/dewaxguard_driver.py`** — dry-run no longer writes phase checkpoints (a `--dry-run` followed by `--resume` would otherwise skip every phase); deterministic setup errors (missing template, backend not on PATH) abort immediately instead of retrying with an empty hint; an unknown or mode-excluded `--phase` now errors (exit 2) instead of silently running nothing; the retry hint now includes the subprocess status. Gates are invoked with `--src` and `--project-root` so `coverage_check` scopes the real source tree instead of guessing `project_root/contracts`.
+- **`scripts/gates/coverage_check.py`** — takes `--project-root` (relative Read/scope paths resolve against it, not CWD); uses `Path.is_relative_to` (no crash on sibling-prefixed dirs); scope-file entries resolve against the project root; the retry hint names the misses file it actually writes.
+- **`scripts/gates/content_check.py`** — accepts a `NO-FINDINGS` / `NONE-TRIGGERED` sentinel so a legitimately-empty phase output (niche "none triggered", a verify pass that refuted everything) passes the gate instead of pressuring agents to fabricate content; resolves non-scratchpad and absolute output specs correctly (no `ValueError` on absolute globs).
+- **`scripts/blind_benchmark.sh`** — the answer-blind stripper no longer deletes Rust/Move `#[attr]` / `#![attr]` lines (the `#`-comment rule is now applied only to hash-comment languages), strips multi-line `/* … */` block comments, and replaces block comments with equal blank lines so ground-truth line numbers stay aligned; exits nonzero when an answer leak survives so `selfcheck` check 10 can trust it.
+- **`scripts/bake_l1.sh`** — renamed the `LANG` variable to `BAKE_LANG` (it was clobbering the POSIX locale for every child process); fixed `rg -E` (ripgrep's `--encoding`) to `-e`; dropped the broken opengrep rung (semgrep can't run the PCRE patterns).
+- **`scripts/run_benchmarks.sh`** — `--score` now fails when nothing was scored, when any benchmark produced no agent output, or on score errors (it previously reported 100% and exit 0 on an empty/misnamed outputs dir); JSON is passed to Python via env, not textual interpolation (a quote in a finding title no longer breaks the parse).
+- **`scripts/detect_language.sh`** — single-quotes the text-mode `LANGUAGE`/`QUIRKS`/`EVIDENCE` values so SKILL.md's `eval "$(detect_language.sh …)"` is safe (a free-text `EVIDENCE=*.sol (no build config)` was a shell syntax error under eval).
+- **`scripts/parse_findings.py`** — `LOC_RE` recognizes `.go`/`.vy`/`.huff` locations (L1 Go findings were silently dropped).
+- **`scripts/score_benchmark.py`** — the finding regex accepts a class field as the last column (no trailing pipe required), so valid findings aren't miscounted as misses.
+- **`scripts/selfcheck.sh`** — check 10 now honors `blind_benchmark.sh`'s exit code and fails on an empty stripped tree (it previously passed vacuously if the stripper crashed).
+- **`prompts/phases/42_niche.md`, `prompts/phases/46_nemesis.md`** — added explicit `model=opus` (core/thorough) directives to the niche and nemesis sub-agent spawns. These dispatchers now run cheap while their recall-sensitive finding sub-agents stay premium; without the directive they would have inherited the cheap dispatcher tier (a regression the v1.24.0 tiering change would have introduced). The niche "none triggered" summary now carries the `NO-FINDINGS` sentinel.
+- **`scripts/dewaxguard_driver.py`, `rules/model-tiering.md`** — `nemesis` is now a `sonnet` dispatcher (its passes are pinned opus in-prompt); the tiering doc records that every dispatcher must state its sub-agent tier explicitly.
+- **`README.md`** — Supported Languages now lists Rust/Soroban (Stellar), C/C++, and Go/L1; added a Driver mode + model-tiering section.
+
+## [1.24.0] - 2026-07-08
+
+**Origin**: ClaudeDevs multi-model cost patterns (advisor / orchestrator — premium model only at decision points; cheaper models for the token-heavy bulk). dewaxguard already tiered finding sub-agents by phase but ran every driver subprocess at one uniform default model, so the "cheap executor" idea was unrealized at the phase level. This release adds per-phase subprocess tiering in the deterministic driver, split by role, with the finding agents deliberately left untouched (security auditing is recall-sensitive — the coding/research benchmarks those patterns come from are not). Methodology/mechanism only — no stored bug patterns.
+
+### Added
+- **`rules/model-tiering.md`** — the per-phase cost/recall policy: three tiers (worker `sonnet`/`haiku`, finding `opus`, commander `--commander-model`), how the ClaudeDevs advisor/orchestrator patterns map onto the pipeline, the recall caveat that keeps finding agents premium, and the do-nots. Documents that a phase subprocess model is independent of the `Task` sub-agent `model=` it spawns — the mechanism that lets dispatchers run cheap without touching recall.
+- **`scripts/dewaxguard_driver.py`** — `--commander-model {sonnet,opus,fable}` (default `opus`) resolving the decision-gate tier; pass `fable` to run the bug-validator gate on Fable 5 (the ClaudeDevs "premium advisor at decision points" pattern) with no other Fable spend.
+
+### Changed
+- **`scripts/dewaxguard_driver.py`** — `Phase.model` per-phase tier added to the registry and passed as `--model` to each `claude -p` subprocess (was: no `--model`, uniform default). Workers/dispatchers → `sonnet`/`haiku` (preflight/bake `haiku`; recon/breadth/inventory/niche/depth/chain/report/verify `sonnet`); finding-tier in-subprocess `nemesis` → `opus`; validator → commander tier. Resolved model is recorded in the manifest, transcript header, and driver log lines. The finding sub-agents' `model=` literals in the phase prompts are unchanged, so recall is unaffected.
+- **`prompts/phases/50_verify.md`**, **`prompts/phases/55_validator.md`** — header notes documenting each phase's tier (worker vs decision gate) and that it does its work in-subprocess (no sub-agent spawning).
+- **`SKILL.md`** — Modes section notes the driver's per-phase tiering and the `--commander-model fable` advisor toggle.
+
 ## [1.23.0] - 2026-06-25
 
 **Origin**: Field calibration from a live Cantina submission (Morpho Midnight) where 9/9 findings were rejected despite a standalone validator predicting 0 rejections. Root cause: the validator (and dewaxguard's Phase 5d gate) scored writeup quality, not bug reality — it had no by-design/source-NatSpec kill, no enabler-fabrication check, and no opted-in-disclosed-risk kill. This release ports those three checks from the bug-validator Reality Gate INTO dewaxguard's own end-of-pipeline gate, so the pipeline is self-sufficient (no separate bug-validator skill needed). Methodology only — no stored bug patterns.

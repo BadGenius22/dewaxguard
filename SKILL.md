@@ -75,7 +75,7 @@ If any check fails, RE-READ the missing file. Do not proceed.
 ╚═════╝ ╚══════╝ ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝
 ```
 
-**v1.22.0** — Multi-language smart contract security auditor combining three methodologies:
+**v1.25.0** — Multi-language smart contract security auditor combining three methodologies:
 - **8 Specialized Hacking Agents** (breadth coverage) **+ 5 attacker-framing agents in thorough mode** (asymmetry, boundary, flow-gap, numerical-gap, trust-gap — v1.19.0)
 - **Nemesis Iterative Cross-Feed** (deep business logic + state inconsistency)
 - **Language-Specific Low-Level + Runtime Analysis** (what other auditors miss)
@@ -98,6 +98,8 @@ If any check fails, RE-READ the missing file. Do not proceed.
 | **Light** | ~15 (all Sonnet) | Recon → Breadth(4) → Depth(4) → Chain → Verify → Report |
 | **Core** | ~30-40 | Recon → Breadth(8) → Inventory → Depth(6) → Chain → Fork PoC → Validate → Report |
 | **Thorough** | ~55-90 | Recon → Breadth(13) → Inventory → Semantic → Depth(6) → Nemesis → Chain → Fork PoC → Validate → Report |
+
+> **Model tiering (driver mode)**: the driver runs each phase's subprocess at a tier chosen by role — high-token workers (verify PoC/trace) and fan-out dispatchers run cheap (`sonnet`/`haiku`), the finding sub-agents keep their tier (`opus` in core/thorough), and the validator decision gate runs at the commander tier. Pass `--commander-model fable` to run that gate on Fable 5 (the ClaudeDevs "premium advisor at decision points" pattern). See `rules/model-tiering.md`. This does not change the per-agent finding models above.
 
 ---
 

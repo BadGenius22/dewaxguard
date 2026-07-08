@@ -50,7 +50,7 @@ HEADER_RE = re.compile(
 # remainder. We parse the header in two passes.
 
 LOC_RE = re.compile(
-    r"(?P<file>[A-Za-z0-9_./\-]+\.(?:sol|rs|move|cpp|cc|hpp|h|py|ts|tsx|js))"
+    r"(?P<file>[A-Za-z0-9_./\-]+\.(?:sol|vy|huff|rs|move|cpp|cc|hpp|h|go|py|ts|tsx|js))"
     r"(?::L?(?P<start>\d+)(?:[-–]L?(?P<end>\d+))?)?"
 )
 VERIFIED_LINE_RE = re.compile(r"^\s*L(?P<ln>\d+)\s*:\s*(?P<src>.*)$")

@@ -21,7 +21,8 @@ import json, re, sys, argparse
 
 TIERS = {"informational": 0, "info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
 FINDING_RE = re.compile(
-    r"^\s*FINDING\s*\|\s*([A-Za-z]+)\s*\|\s*([^|]+?)\s*\|\s*([^|]*?)\s*\|", re.I | re.M)
+    # sev | title | class, where class may be the last field (no trailing pipe)
+    r"^\s*FINDING\s*\|\s*([A-Za-z]+)\s*\|\s*([^|]+?)\s*\|\s*([^|]*?)\s*(?:\||$)", re.I | re.M)
 LOC_RE = re.compile(r"([\w./-]+?\.\w+)\s*[:#]?\s*L?(\d+)\s*[-–]\s*L?(\d+)")
 LOC_SINGLE_RE = re.compile(r"([\w./-]+?\.\w+)\s*[:#]\s*L?(\d+)")
 

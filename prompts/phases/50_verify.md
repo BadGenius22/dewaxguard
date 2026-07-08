@@ -2,6 +2,8 @@
 
 > Fresh `claude -p` subprocess. No prior context. Treat this prompt as your entire task.
 > Verification is where hypotheses become evidence. A finding without an executed PoC has minimal weight in the report — your job is to convert as many findings as possible into `[FORK-PASS]` / `[POC-PASS]` evidence tags.
+>
+> **Model tier: worker (`sonnet`).** Per `rules/model-tiering.md`, this phase runs on a cheaper model because PoC/code-trace work is high-token and low-judgment — you are executing tests against findings the premium finding agents already produced, not deciding whether a bug exists. Do all work in this subprocess; do not spawn sub-agents.
 
 ## Audit context
 

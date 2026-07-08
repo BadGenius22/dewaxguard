@@ -133,12 +133,19 @@ fi
 echo "== 10. Benchmark blind-stripper removes answer leaks =="
 if [ -x scripts/blind_benchmark.sh ]; then
   tmp=$(mktemp -d 2>/dev/null)
-  scripts/blind_benchmark.sh --out "$tmp" >/dev/null 2>&1
-  leak=$(grep -riElE 'vulnerab|exploit|false positive|should not be flagged|correct pattern' "$tmp" 2>/dev/null)
+  # Honor the script's own exit code (nonzero = leak survived / error) and verify
+  # it actually produced stripped files — a crashed stripper leaves an empty tree
+  # that would otherwise pass every check below vacuously.
+  if scripts/blind_benchmark.sh --out "$tmp" >/dev/null 2>&1; then bb_rc=0; else bb_rc=$?; fi
+  nfiles=$(find "$tmp" -type f 2>/dev/null | wc -l)
+  leak=$(grep -rilE 'vulnerab|exploit|false positive|should not be flagged|correct pattern' "$tmp" 2>/dev/null)
   gt=$(find "$tmp" -name ground-truth.json 2>/dev/null)
+  [ "$bb_rc" -eq 0 ] || fail "blind_benchmark.sh exited $bb_rc (leak survived or error)"
+  [ "$nfiles" -gt 0 ] || fail "blind_benchmark.sh produced no stripped files (stripper crashed?)"
   [ -z "$leak" ] || fail "blind_benchmark.sh left answer leaks in: $leak"
   [ -z "$gt" ]   || fail "blind_benchmark.sh copied ground-truth.json into blind tree: $gt"
-  [ -z "$leak" ] && [ -z "$gt" ] && ok "blind copies are answer-free and carry no ground truth"
+  [ "$bb_rc" -eq 0 ] && [ "$nfiles" -gt 0 ] && [ -z "$leak" ] && [ -z "$gt" ] \
+    && ok "blind copies are answer-free, non-empty, and carry no ground truth"
   rm -rf "$tmp"
 else
   fail "scripts/blind_benchmark.sh missing or not executable"

@@ -22,7 +22,6 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import sys
 from pathlib import Path
@@ -53,9 +52,18 @@ SOURCE_EXTENSIONS = {
 }
 
 
-def enumerate_in_scope(src_root: Path, scope_file: Path | None = None) -> list[Path]:
+def enumerate_in_scope(src_root: Path, scope_file: Path | None = None,
+                       project_root: Path | None = None) -> list[Path]:
     if scope_file and scope_file.exists():
-        return [Path(line.strip()) for line in scope_file.read_text().splitlines() if line.strip()]
+        base = project_root or Path.cwd()
+        out: list[Path] = []
+        for line in scope_file.read_text().splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            p = Path(line)
+            out.append(p if p.is_absolute() else (base / p))
+        return out
     out: list[Path] = []
     for p in src_root.rglob("*"):
         if not p.is_file():
@@ -107,24 +115,23 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--required", default="",
                     help="Required outputs; ignored by coverage gate but accepted for driver-uniform invocation.")
     ap.add_argument("--src", type=Path, default=None,
-                    help="Source root to enumerate. Default: read from driver/manifest.json.")
+                    help="Source root to enumerate. Default: guessed under project root.")
+    ap.add_argument("--project-root", type=Path, default=None,
+                    help="Project root for resolving relative Read/scope paths. Default: scratchpad parent.")
     ap.add_argument("--scope-file", type=Path, default=None,
                     help="Explicit list of in-scope files (one path per line).")
     ap.add_argument("--max-misses", type=int, default=0,
                     help="Allowed number of unread files (default 0). Use >0 for soft-gate phases.")
     args = ap.parse_args(argv)
 
-    # Resolve src from manifest if not given
+    project_root = (args.project_root or args.scratchpad.parent).resolve()
+
+    # Resolve src: prefer the explicit --src the driver passes; otherwise guess
+    # common source roots under the project root.
     src = args.src
-    project_root = args.scratchpad.parent
     if src is None:
-        manifest_path = args.scratchpad / "driver" / "manifest.json"
-        if manifest_path.exists():
-            m = json.loads(manifest_path.read_text())
-            # manifest doesn't record --src directly; fall back to project_root
         src = project_root / "contracts"  # best guess
         if not src.exists():
-            # try common roots
             for cand in ("src", "programs", "modules", "sources"):
                 if (project_root / cand).exists():
                     src = project_root / cand
@@ -133,7 +140,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"FAIL phase={args.phase}: --src not found ({src}); cannot enumerate scope", file=sys.stderr)
         return 2
 
-    in_scope = enumerate_in_scope(src, args.scope_file)
+    in_scope = enumerate_in_scope(src, args.scope_file, project_root)
     if not in_scope:
         print(f"OK phase={args.phase}: no in-scope source files detected (empty scope is fine)")
         return 0
@@ -158,14 +165,14 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     # Generate targeted retry hint
+    misses_file = args.scratchpad / "driver" / f"coverage_misses_{args.phase}.txt"
     lines = [f"FAIL phase={args.phase}: {len(missed)} in-scope file(s) not read by any agent."]
     lines.append("Retry hint — these files must be read in the next attempt:")
     for p in missed[:20]:
-        rel = p.relative_to(project_root) if str(p).startswith(str(project_root)) else p
+        rel = p.relative_to(project_root) if p.is_relative_to(project_root) else p
         lines.append(f"  - {rel}")
     if len(missed) > 20:
-        lines.append(f"  ... and {len(missed) - 20} more (see coverage_check_misses.txt)")
-        misses_file = args.scratchpad / "driver" / f"coverage_misses_{args.phase}.txt"
+        lines.append(f"  ... and {len(missed) - 20} more (see {misses_file.name})")
         misses_file.write_text("\n".join(str(p) for p in missed))
     print("\n".join(lines))
     return 1

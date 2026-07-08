@@ -94,8 +94,13 @@ if [ "$JSON" -eq 1 ]; then
   printf '{"language":"%s","quirks":"%s","evidence":"%s","l1_candidate":%s}\n' \
     "$LANGUAGE" "$QUIRKS" "$EVIDENCE" "$([ $L1 -eq 1 ] && echo true || echo false)"
 else
-  echo "LANGUAGE=$LANGUAGE"
-  echo "QUIRKS=$QUIRKS"
-  echo "EVIDENCE=$EVIDENCE"
+  # Text mode is consumed via `eval "$(detect_language.sh ...)"` (see SKILL.md),
+  # so every value must be single-quoted — EVIDENCE is free text and can contain
+  # spaces, globs, and parentheses (e.g. "*.sol (no build config — verify)") that
+  # would otherwise be a shell syntax error or glob-expand under eval.
+  sq() { printf "'%s'" "${1//\'/\'\\\'\'}"; }
+  echo "LANGUAGE=$(sq "$LANGUAGE")"
+  echo "QUIRKS=$(sq "$QUIRKS")"
+  echo "EVIDENCE=$(sq "$EVIDENCE")"
   echo "L1_CANDIDATE=$([ $L1 -eq 1 ] && echo yes || echo no)"
 fi

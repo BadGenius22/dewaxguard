@@ -15,7 +15,7 @@
 - `{{SCRATCHPAD}}/template_recommendations.md` (from recon Phase 1.1) — names which niche agents to spawn
 - `{{SCRATCHPAD}}/findings_routed.json` (from inventory)
 
-If `template_recommendations.md` does not exist OR contains no `## Niche Agents` section: write a minimal `{{SCRATCHPAD}}/niche_summary.md` stating "no niche agents triggered" and exit cleanly. Do NOT spawn any agents.
+If `template_recommendations.md` does not exist OR contains no `## Niche Agents` section: write `{{SCRATCHPAD}}/niche_summary.md` using the "none triggered" template below (it opens with the `NO-FINDINGS` sentinel the content gate recognises) and exit cleanly. Do NOT spawn any agents.
 
 ## Your task — flag-driven dispatch
 
@@ -30,7 +30,7 @@ Read `template_recommendations.md` and find a `## Niche Agents` section. It look
 - SEMANTIC_CONSISTENCY_AUDIT — trigger: HAS_MULTI_CONTRACT (2+ contracts sharing params)
 ```
 
-For each listed niche agent, spawn a Task agent in parallel:
+For each listed niche agent, spawn a Task agent in parallel. **Model (per `rules/model-tiering.md`): spawn every niche agent via the Task tool with `subagent_type="general-purpose"` and `model="opus"` for `core`/`thorough`, `model="sonnet"` for `light`.** These are finding agents — they must keep the premium tier even though this dispatcher subprocess runs cheap.
 
 ### Niche agent specs
 
@@ -151,20 +151,24 @@ After all spawned agents return, write `{{SCRATCHPAD}}/niche_summary.md`:
 (One row per spawned agent.)
 ```
 
-If no niche agents were listed in `template_recommendations.md`, write:
+If no niche agents were listed in `template_recommendations.md`, write exactly:
 
 ```markdown
+NO-FINDINGS
+
 # Niche Agents Summary — {{AUDIT_ID}}
 
 **Triggered**: none
 **Reason**: no niche agent flags in template_recommendations.md
 ```
 
+The leading `NO-FINDINGS` line is the sentinel the content gate accepts for a legitimately-empty phase; keep it as the first line.
+
 ## Required outputs (driver gate checks for these)
 
 - `{{SCRATCHPAD}}/niche_summary.md`
 
-The content gate is content-type-agnostic for this file — it just needs ≥ 200 bytes and to not be a stub. The "none triggered" case meets that.
+The content gate accepts this file when it either carries the `NO-FINDINGS` sentinel (the "none triggered" case above) or is a non-stub summary ≥ 200 bytes with ≥ 3 non-header lines (the "agents ran" case).
 
 ## Retry hint (if any)
 
