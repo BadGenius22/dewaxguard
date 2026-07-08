@@ -29,14 +29,14 @@ set -euo pipefail
 
 SRC=""
 OUT=""
-LANG="go"
+BAKE_LANG="go"
 VERBOSE=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --src) SRC="$2"; shift 2 ;;
         --out) OUT="$2"; shift 2 ;;
-        --lang) LANG="$2"; shift 2 ;;
+        --lang) BAKE_LANG="$2"; shift 2 ;;
         --verbose) VERBOSE=1; shift ;;
         -h|--help)
             sed -n '1,30p' "$0" | sed 's/^# \?//'
@@ -68,15 +68,17 @@ command -v ast-grep >/dev/null 2>&1 && HAVE_AST_GREP=1
 command -v opengrep >/dev/null 2>&1 && HAVE_OPENGREP=1
 command -v rg >/dev/null 2>&1 && HAVE_RIPGREP=1
 
+# Selection reflects what run_pattern actually uses: ast-grep (AST) > ripgrep
+# (regex) > grep. opengrep is detected for the summary but not used for these
+# PCRE-style regex patterns (semgrep won't accept them) — see run_pattern.
 TOOL="grep"
 [[ $HAVE_RIPGREP -eq 1 ]] && TOOL="rg"
-[[ $HAVE_OPENGREP -eq 1 ]] && TOOL="opengrep"
 [[ $HAVE_AST_GREP -eq 1 ]] && TOOL="ast-grep"
 
 note "tool selected: $TOOL (ast-grep=$HAVE_AST_GREP opengrep=$HAVE_OPENGREP rg=$HAVE_RIPGREP)"
 note "src: $SRC"
 note "out: $OUT"
-note "lang: $LANG"
+note "lang: $BAKE_LANG"
 
 # ────────────────────────────────────────────────────────────────────────────
 # Helper: run pattern via the best tool, emit normalized FILE:LINE:MATCH lines.
@@ -89,20 +91,23 @@ run_pattern() {
     log "running pattern: $label"
 
     if [[ $HAVE_AST_GREP -eq 1 && -n "$agp" ]]; then
-        ast-grep --lang "$LANG" --pattern "$agp" "$SRC" 2>/dev/null || true
-    elif [[ $HAVE_OPENGREP -eq 1 ]]; then
-        opengrep --lang "$LANG" "$rgp" "$SRC" 2>/dev/null || true
+        ast-grep --lang "$BAKE_LANG" --pattern "$agp" "$SRC" 2>/dev/null || true
     elif [[ $HAVE_RIPGREP -eq 1 ]]; then
-        # ripgrep uses Rust regex syntax — supports \s, \w, \b natively
-        rg --type "$LANG" -n -E "$rgp" "$SRC" 2>/dev/null || true
+        # ripgrep uses Rust regex syntax — supports \s, \w, \b natively.
+        # NOTE: the pattern goes after -e; `-E` is ripgrep's --encoding flag, not
+        # extended-regex, and would consume the pattern as an encoding name.
+        rg --type "$BAKE_LANG" -n -e "$rgp" "$SRC" 2>/dev/null || true
     else
+        # opengrep/semgrep is intentionally skipped here: these rungs use PCRE-style
+        # regex patterns, which semgrep does not accept as -e patterns, so it would
+        # error and emit nothing. Regex patterns fall through to grep below.
         # POSIX grep — translate Perl-style escapes to POSIX equivalents
         local posix_pat="$rgp"
         posix_pat="${posix_pat//\\s/[[:space:]]}"
         posix_pat="${posix_pat//\\w/[[:alnum:]_]}"
         posix_pat="${posix_pat//\\b/}"   # POSIX has no \b; drop and accept some imprecision
         local ext="*.go"
-        [[ "$LANG" == "rust" ]] && ext="*.rs"
+        [[ "$BAKE_LANG" == "rust" ]] && ext="*.rs"
         # Use -P if available for PCRE; else fall back to the translated POSIX pattern
         if echo a | grep -P 'a' >/dev/null 2>&1; then
             grep -Prn --include="$ext" "$rgp" "$SRC" 2>/dev/null || true
@@ -341,7 +346,7 @@ run_pattern() {
     echo "# L1 Bake Summary — $(date -u +%Y-%m-%dT%H:%M:%SZ)"
     echo ""
     echo "**Source**: $SRC"
-    echo "**Language**: $LANG"
+    echo "**Language**: $BAKE_LANG"
     echo "**Tool selected**: $TOOL"
     echo "**Tool availability**: ast-grep=$HAVE_AST_GREP opengrep=$HAVE_OPENGREP rg=$HAVE_RIPGREP"
     echo ""

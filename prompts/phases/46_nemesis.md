@@ -49,6 +49,8 @@ Exit early if any of:
 
 ### Per-pass instructions
 
+> **Model (per `rules/model-tiering.md`)**: spawn every Feynman and State pass via the Task tool with `subagent_type="general-purpose"` and `model="opus"`. Nemesis runs only in `thorough` mode, and the cross-feed reasoning these sub-agents perform is recall-sensitive — pin them to the premium tier even though this orchestrating subprocess only coordinates passes and detects convergence.
+
 For Feynman passes, spawn a Task agent with this prompt:
 
 ```

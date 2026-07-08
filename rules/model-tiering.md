@@ -23,18 +23,18 @@ The ClaudeDevs patterns are about *not* paying the top-tier rate for every token
 
 | Tier | Model | Roles | Why |
 |------|-------|-------|-----|
-| **worker** | `sonnet` / `haiku` | verify (PoC + code trace), preflight, bake, inventory, and every fan-out **dispatcher** (recon, breadth, niche, depth, chain, report) | High-token, low-judgment, or pure coordination. The dispatcher's own model does not touch finding quality — the sub-agents it spawns carry that. |
-| **finding** | `opus` (core/thorough) | the breadth / depth / niche / nemesis / chain-synthesis / recon-deep **sub-agents**, plus the report Critical+High writer, plus in-subprocess `nemesis` | Where bugs are actually found or the flagship deliverable is written. Recall-sensitive — **never down-tiered.** |
+| **worker** | `sonnet` / `haiku` | verify (PoC + code trace), preflight, bake, inventory, and every fan-out **dispatcher** (recon, breadth, niche, depth, nemesis, chain, report) | High-token, low-judgment, or pure coordination. The dispatcher's own model does not touch finding quality — the sub-agents it spawns carry that. |
+| **finding** | `opus` (core/thorough) | the breadth / depth / niche / nemesis / chain-synthesis / recon-deep **sub-agents**, plus the report Critical+High writer | Where bugs are actually found or the flagship deliverable is written. Recall-sensitive — **never down-tiered.** |
 | **commander** | `--commander-model` (default `opus`; `fable` for the advisor pattern) | the bug validator decision gate | Low-token, high-judgment, bounded, verifiable accept/reject scoring — the one place premium pays off cheaply. |
 
-**Key mechanism.** A phase's `claude -p` subprocess model (set in the driver's `PHASES` registry via `Phase.model`) is **independent** of the `model=` a phase prompt passes to a `Task` sub-agent. So a `sonnet` dispatcher can spawn `opus` finding agents. That independence is what lets us make the coordination cheap without touching recall.
+**Key mechanism.** A phase's `claude -p` subprocess model (set in the driver's `PHASES` registry via `Phase.model`) is **independent** of the `model=` a phase prompt passes to a `Task` sub-agent. So a `sonnet` dispatcher can spawn `opus` finding agents. That independence is what lets us make the coordination cheap without touching recall. **Every dispatcher must therefore state the sub-agent tier explicitly** — via a `model=` literal in the agent block (breadth/depth/report) or a prose model directive in the dispatch section (recon, chain, niche, nemesis). A dispatcher whose sub-agents carry no tier would silently inherit the cheap dispatcher model and down-tier the finding work.
 
 ---
 
 ## Where each tier is set
 
 - **Subprocess tier** — `Phase.model` in `scripts/dewaxguard_driver.py`. `"commander"` resolves at run time to `--commander-model`.
-- **Finding sub-agent tier** — the `model=` literals inside the phase prompts (`30_breadth.md` agent table, `45_depth*.md`, `47_chain.md`, `60_report.md` writer agents, `10_recon.md`). **These are the recall-critical knobs — leave them at `opus` for core/thorough.**
+- **Finding sub-agent tier** — the `model=` literals or prose model directives inside the phase prompts (`30_breadth.md` agent table, `45_depth*.md`, `47_chain.md`, `60_report.md` writer agents, `10_recon.md`, `42_niche.md` dispatch section, `46_nemesis.md` per-pass instructions). **These are the recall-critical knobs — leave them at `opus` for core/thorough.**
 
 If you change a phase's role (e.g. make a dispatcher do finding work directly in-subprocess), update its `Phase.model` accordingly — a subprocess that reasons about bugs itself must be `opus` (see `nemesis`), not `sonnet`.
 

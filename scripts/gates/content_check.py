@@ -40,6 +40,12 @@ STUB_PHRASES = [
 ]
 HEADER_ONLY_RE = re.compile(r"^[\s#*_>=-]*[\w \-:,]{0,80}[\s#*_>=-]*$", re.MULTILINE)
 
+# Explicit "this phase legitimately produced nothing" marker. A clean module,
+# a niche phase with no triggered agents, or a verify pass that refuted every
+# candidate should emit this on its own line rather than fabricating content to
+# clear the gate. Agents won't emit it by accident.
+NO_FINDINGS_RE = re.compile(r"^\s*(?:NO[- ]?FINDINGS|NONE[- ]?TRIGGERED)\b", re.IGNORECASE | re.MULTILINE)
+
 
 # Per-output-pattern requirements
 def is_findings_json(path: Path) -> tuple[bool, str]:
@@ -58,6 +64,8 @@ def is_findings_json(path: Path) -> tuple[bool, str]:
 
 def is_analysis_md(path: Path) -> tuple[bool, str]:
     text = path.read_text(encoding="utf-8", errors="replace")
+    if NO_FINDINGS_RE.search(text):
+        return (True, "no findings (explicit sentinel)")
     has_pipe = bool(re.search(r"^\s*(FINDING|LEAD)\s*\|", text, re.MULTILINE))
     has_md = bool(re.search(r"^##\s+Finding\s+\[", text, re.MULTILINE))
     if not (has_pipe or has_md):
@@ -78,6 +86,8 @@ def is_report_md(path: Path) -> tuple[bool, str]:
 
 def is_generic_md(path: Path) -> tuple[bool, str]:
     text = path.read_text(encoding="utf-8", errors="replace")
+    if NO_FINDINGS_RE.search(text):
+        return (True, "no findings (explicit sentinel)")
     body = text.strip()
     if len(body) < MIN_BYTES:
         return (False, f"too short ({len(body)} bytes)")
@@ -117,25 +127,38 @@ def classify(path: Path) -> tuple[bool, str]:
     return is_generic_md(path)
 
 
-def expand_required(required: list[str], scratchpad: Path) -> list[tuple[str, list[Path]]]:
+def expand_required(required: list[str], scratchpad: Path,
+                    project_root: Path | None = None) -> list[tuple[str, list[Path]]]:
     """Expand glob entries to actual paths; return list of (spec, [matches])."""
+    # Non-scratchpad specs (e.g. AUDIT_REPORT.md) resolve against the project
+    # root the driver passes; fall back to scratchpad.parent for the default
+    # layout when --project-root is absent.
+    project_base = project_root if project_root is not None else scratchpad.parent
     out: list[tuple[str, list[Path]]] = []
     for spec in required:
         spec = spec.strip()
         if not spec:
             continue
         # interpret relative to scratchpad if it starts with "scratchpad/",
-        # or relative to scratchpad's parent otherwise (e.g. AUDIT_REPORT.md)
+        # or relative to the project root otherwise (e.g. AUDIT_REPORT.md)
         if spec.startswith("scratchpad/"):
             spec_rel = spec[len("scratchpad/"):]
             base = scratchpad
-        elif spec.startswith("/") or spec.startswith("./"):
-            base = Path(".")
+        elif spec.startswith("/"):
+            # absolute spec — glob/exists it directly, no base join
+            base = None
             spec_rel = spec
+        elif spec.startswith("./"):
+            base = project_base
+            spec_rel = spec[2:]
         else:
-            base = scratchpad.parent
+            base = project_base
             spec_rel = spec
-        if any(ch in spec_rel for ch in "*?["):
+        has_glob = any(ch in spec_rel for ch in "*?[")
+        if base is None:
+            matches = sorted(Path("/").glob(spec_rel.lstrip("/"))) if has_glob \
+                else ([Path(spec_rel)] if Path(spec_rel).exists() else [])
+        elif has_glob:
             matches = sorted(base.glob(spec_rel))
         else:
             matches = [base / spec_rel] if (base / spec_rel).exists() else []
@@ -149,10 +172,14 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--scratchpad", type=Path, required=True)
     ap.add_argument("--required", required=True,
                     help="Comma-separated list of required output paths/globs.")
+    ap.add_argument("--project-root", type=Path, default=None,
+                    help="Project root for resolving non-scratchpad outputs (e.g. AUDIT_REPORT.md).")
+    ap.add_argument("--src", type=Path, default=None,
+                    help="Accepted for driver-uniform gate invocation; ignored by this gate.")
     args = ap.parse_args(argv)
 
     required = [s for s in args.required.split(",") if s.strip()]
-    expanded = expand_required(required, args.scratchpad)
+    expanded = expand_required(required, args.scratchpad, args.project_root)
 
     failures: list[str] = []
     okays: list[str] = []

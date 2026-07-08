@@ -11,7 +11,7 @@ A Claude Code skill that combines three audit methodologies into one unified pip
 | **Cross-feed** | Single pass | Nemesis iterative loop — Feynman ↔ State Inconsistency until convergence |
 | **Verification** | Code trace / unit test | **Mainnet fork PoC** — real contract calls on forked chain |
 | **Quality** | Submit and hope | **Pre-submission bug validator** — 4-gate scoring against platform criteria |
-| **Languages** | Single chain | Solidity, Rust/Solana, Move/Aptos, Move/Sui |
+| **Languages** | Single chain | Solidity, Rust/Solana, Rust/Soroban (Stellar), Move/Aptos, Move/Sui, C/C++ (rippled, Bitcoin Core), Go (L1 node clients) |
 
 ## Installation
 
@@ -67,14 +67,28 @@ Phase 5d:   Bug Validator (platform scoring)
 Phase 6:    Report (submission-ready)
 ```
 
+## Driver mode (advanced, opt-in)
+
+Instead of the prompt-only LLM orchestrator, a deterministic Python driver can run the pipeline as one `claude -p` subprocess per phase, with content/coverage gates and crash-resumable checkpoints between phases:
+
+```bash
+python3 scripts/dewaxguard_driver.py --mode core --src ./contracts [--resume]
+python3 scripts/dewaxguard_driver.py --mode thorough --src ./node --l1   # Go/Rust L1 node clients
+```
+
+**Model tiering** — each phase's subprocess runs at a tier chosen by role: high-token workers (PoC/trace) and fan-out dispatchers run cheap, the finding sub-agents stay premium, and the bug-validator decision gate runs at the commander tier. Pass `--commander-model fable` to run that gate on Fable 5 (a "premium advisor at decision points" pattern). See [`rules/model-tiering.md`](rules/model-tiering.md).
+
 ## Supported Languages
 
 | Language | Low-Level Checks | Runtime Checks |
 |----------|-----------------|----------------|
 | **Solidity** | Assembly safety, abi.encode collisions, unchecked blocks, delegatecall storage, type truncation | Reentrancy, gas griefing, CREATE2, selfdestruct injection, EIP-712 replay |
 | **Rust/Solana** | `as` cast bypass, zero_copy padding, unsafe blocks, borsh serialization | CU exhaustion, account aliasing, PDA collision, instruction composition, CPI trust |
+| **Rust/Soroban (Stellar)** | `as` cast bypass, unsafe blocks, serialization | Archive/restore state, `require_auth` gaps, storage TTL, cross-contract trust |
 | **Move/Aptos** | Ability constraints, generic type exploits, reference lifecycle, object model | Module upgrades, resource publishing, tx composition, gas metering |
 | **Move/Sui** | Object ownership, dynamic fields, witness pattern, coin safety | PTB composition, package upgrades, shared object contention, clock manipulation |
+| **C/C++ (native nodes)** | Integer overflow, unsafe casts, memory safety, serialization | rippled / Bitcoin Core tx composition, consensus edge cases (unit-test PoC; fork not feasible) |
+| **Go (L1 node clients)** | Unsafe casts, serialization, non-determinism (map iteration, floats, RNG) | Consensus invariants, slashing, fork choice, p2p/RPC surface, mempool admission (via `--l1` mode) |
 
 ## Methodology Sources
 

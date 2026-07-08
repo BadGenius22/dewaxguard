@@ -51,8 +51,6 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import json
-import os
-import shlex
 import shutil
 import subprocess
 import sys
@@ -146,7 +144,8 @@ PHASES: list[Phase] = [
         required_outputs=["scratchpad/niche_summary.md"],
         timeout_seconds=3600,
         gates=["content_check"],
-        model="sonnet",  # dispatcher; niche finding sub-agents keep their tier via prompt literals
+        model="sonnet",  # dispatcher; niche finding sub-agents are pinned opus (core/thorough)
+                         # by the model directive in 42_niche.md's dispatch section
     ),
     Phase(
         name="depth",
@@ -165,8 +164,8 @@ PHASES: list[Phase] = [
         timeout_seconds=7200,  # 2hr — up to 6 sequential cross-feed passes
         gates=["content_check"],
         mode_min="thorough",
-        model="opus",  # finding tier: iterative Feynman <-> State cross-feed reasoning
-                       # runs in-subprocess and is recall-sensitive — do not down-tier
+        model="sonnet",  # dispatcher; the Feynman/State cross-feed sub-agents are pinned
+                         # opus by the model directive in 46_nemesis.md (recall-sensitive)
     ),
     Phase(
         name="chain",
@@ -301,13 +300,20 @@ def run_gates(state: DriverState, phase: Phase) -> tuple[bool, list[str]]:
         if not gate_path.exists():
             failures.append(f"gate script missing: {gate_path}")
             continue
-        # gates receive: phase name, scratchpad, list of required outputs (glob-expanded)
+        # gates receive: phase name, scratchpad, required outputs, and the source
+        # root. Every gate accepts --src (content_check ignores it) so the
+        # invocation stays uniform; coverage_check needs it to enumerate scope
+        # instead of guessing project_root/contracts. --project-root lets gates
+        # resolve non-scratchpad outputs (e.g. AUDIT_REPORT.md) correctly even
+        # when --scratchpad is not under project_root.
         outputs_arg = ",".join(phase.required_outputs)
         cmd = [
             sys.executable, str(gate_path),
             "--phase", phase.name,
             "--scratchpad", str(state.scratchpad),
             "--required", outputs_arg,
+            "--src", str(state.src),
+            "--project-root", str(state.project_root),
         ]
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
@@ -437,6 +443,23 @@ def run_pipeline(state: DriverState, only: list[str] | None = None, resume: bool
     state.save_manifest(manifest)
 
     phases = select_phases(state.mode, only, l1=state.l1)
+
+    # Fail loudly on a --phase name that is unknown or excluded by the current
+    # mode/L1 selection, rather than silently running nothing and exiting 0.
+    if only:
+        selected = {p.name for p in phases}
+        bad = [name for name in only if name not in selected]
+        if bad:
+            all_names = {p.name for p in PHASES}
+            for name in bad:
+                reason = "unknown phase" if name not in all_names else "excluded by --mode/--l1 for this run"
+                print(f"[driver] --phase {name!r}: {reason}", file=sys.stderr)
+            print(f"[driver] valid phases for this run: {sorted(selected)}", file=sys.stderr)
+            return 2
+    if not phases:
+        print("[driver] no phases selected; nothing to do", file=sys.stderr)
+        return 2
+
     l1_tag = " [L1]" if state.l1 else ""
     phase_models = [f"{p.name}:{state.phase_model(p)}" for p in phases]
     print(f"[driver]{l1_tag} audit_id={state.audit_id} mode={state.mode} backend={state.backend} commander={state.commander_model} phases={phase_models}", file=sys.stderr)
@@ -456,6 +479,16 @@ def run_pipeline(state: DriverState, only: list[str] | None = None, resume: bool
                 print(f"[driver] {phase.name}: retry {retry_n} with hint: {hint!r}", file=sys.stderr)
 
             rec = invoke_phase(state, phase, retry_n=retry_n, retry_hint=hint)
+
+            # Deterministic setup errors (missing template, backend not on PATH)
+            # will not be fixed by retrying — abort immediately with the reason.
+            if rec["status"] == "error":
+                print(f"[driver] {phase.name}: setup error: {rec.get('error','?')}; aborting pipeline", file=sys.stderr)
+                manifest["phases"][phase.name] = rec
+                state.save_manifest(manifest)
+                overall = 1
+                break
+
             passed, failures = run_gates(state, phase)
             rec["gates_passed"] = passed
             rec["gate_failures"] = failures
@@ -468,16 +501,30 @@ def run_pipeline(state: DriverState, only: list[str] | None = None, resume: bool
             else:
                 print(f"[driver] {phase.name} ({rec.get('model','?')}): subprocess ok in {rec.get('elapsed_s','?')}s; gates={passed}", file=sys.stderr)
 
-            if passed and rec["status"] in ("ok", "dry_run"):
+            # A dry run never executes the subprocess, so it must NOT create a
+            # checkpoint — otherwise a later `--resume` real run skips the phase.
+            if rec["status"] == "dry_run":
+                break
+            if passed and rec["status"] == "ok":
                 state.mark_complete(phase.name, {"retry_n": retry_n, "at": _now_iso()})
                 break
             else:
-                manifest["phases"][phase.name]["last_failure_msgs"] = failures
+                # Include the subprocess status (timeout/exit_nonzero) alongside
+                # gate failures so the retry hint is never empty.
+                msgs = list(failures)
+                if rec["status"] != "ok":
+                    msgs.insert(0, f"subprocess {rec['status']}")
+                manifest["phases"][phase.name]["last_failure_msgs"] = msgs
                 state.save_manifest(manifest)
         else:
             # exhausted retries
             print(f"[driver] {phase.name}: FAILED after {state.retry_budget} retries; aborting pipeline", file=sys.stderr)
             overall = 1
+            break
+
+        # An abort inside the retry loop (setup error) sets overall=1 and breaks
+        # the inner loop; propagate it to stop the pipeline.
+        if overall:
             break
 
     return overall

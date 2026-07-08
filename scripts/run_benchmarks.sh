@@ -98,17 +98,19 @@ while IFS=$'\t' read -r id path lang; do
   res="$(scripts/score_benchmark.py "$out" "$gt" --json 2>/dev/null)" || true
   if [ -z "$res" ]; then detail="$detail| $id | $lang | — | SCORE ERROR |\n"; continue; fi
   scored=$((scored+1))
-  read -r rf rn tc tt <<<"$(python3 - <<PY
-import json,sys
-r=json.loads('''$res''')
+  # Pass the JSON via env, not textual interpolation — a finding title with a
+  # quote or backslash would otherwise break the Python string literal.
+  read -r rf rn tc tt <<<"$(RES="$res" python3 - <<'PY'
+import json, os
+r=json.loads(os.environ["RES"])
 print(r["found"], r["must_detect"], r["traps_clean"], r["traps_total"])
 PY
 )"
   recall_hits=$((recall_hits+rf)); recall_need=$((recall_need+rn))
   traps_clean=$((traps_clean+tc)); traps_total=$((traps_total+tt))
-  sevs="$(python3 - <<PY
-import json
-r=json.loads('''$res''')
+  sevs="$(RES="$res" python3 - <<'PY'
+import json, os
+r=json.loads(os.environ["RES"])
 ds=[d for d in r["detection"] if d["sev_delta"] is not None]
 print(",".join(f"{d['exp_sev']}->{d['got_sev']}({d['sev_delta']:+d})" for d in ds) or "—")
 PY
@@ -144,4 +146,17 @@ trap_pct=$(( traps_total>0 ? traps_clean*100/traps_total : 100 ))
 
 echo "wrote $RESULTS"
 echo "recall $recall_hits/$recall_need ($recall_pct%) | traps clean $traps_clean/$traps_total ($trap_pct%) | scored $scored/$total"
+
+# Guard against a vacuous pass: an empty/misnamed OUTPUTS dir leaves every counter
+# at 0, and 0==0 would otherwise report 100% and exit 0. Require that every
+# benchmark actually produced an output and scored before judging recall/traps.
+if [ "$scored" -eq 0 ]; then
+  echo "FAIL: no benchmarks scored (empty or misnamed OUTPUTS dir: $OUTPUTS)" >&2; exit 1
+fi
+if [ "${#missing[@]}" -gt 0 ]; then
+  echo "FAIL: ${#missing[@]} benchmark(s) had no agent output: ${missing[*]}" >&2; exit 1
+fi
+if [ "$scored" -ne "$total" ]; then
+  echo "FAIL: only $scored/$total benchmarks scored (score errors above)" >&2; exit 1
+fi
 [ "$recall_hits" -eq "$recall_need" ] && [ "$traps_clean" -eq "$traps_total" ] && exit 0 || exit 1
