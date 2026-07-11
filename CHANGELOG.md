@@ -1,5 +1,18 @@
 # DewaxGuard Changelog
 
+## [1.26.0] - 2026-07-12
+
+**Origin**: Post-incident knowledge ingestion from the Bonzo Lend / Supra oracle exploit (Hedera mainnet, ~$10M). Attacker submitted a price update carrying a **zeroed BLS signature `[0,0]`**; the oracle's BLS verifier fed the degenerate points to Hedera's pairing precompile and, because both signature and committee key were the identity/zero, the pairing equation `e(0,G2) == e(H(m),0)` collapsed to `1 == 1` and returned true. The verifier never checked its inputs were non-zero and in-subgroup first, so a meaningless-but-mathematically-valid equation was trusted as a valid committee signature — inflating an oracle price ~1e12x and enabling ~$9.05M borrowed against ~$2 of collateral. dewaxguard had M-30 (signature replay/binding) and M-16 (ZK-proof composition) but **zero coverage of verifier input-validation soundness**. Methodology only — no stored bug patterns.
+
+### Added
+- **`methodology/M31-signature-verifier-input-validation.md`** — On-Chain Signature-Verifier Soundness template. Auditable soundness table per verifier (non-zero/non-identity, subgroup membership, on-curve, `ecrecover`→`address(0)` sentinel, semantic-vs-mathematical result, key provenance) with a 7-STEP process including the zero/identity test (the Bonzo shape), subgroup/small-order test, sentinel test, and STEP 6 consumer-side defense-in-depth pairing. `trigger_grep` fires on pairing/BLS/precompile/`ecrecover` primitives; cross-language (EVM `ecPairing` 0x08 / EIP-2537 / `ecrecover`, Solana `alt_bn128_pairing` / `blst`, Sui `bls12381`, Aptos `crypto_algebra`, Cosmos consensus BLS). Distinct from M-30 (binding/replay) and M-16 (ZK composition).
+- **`references/attack-vectors/attack-vectors.md` #267** — "Pairing / BLS Signature-Verifier Accepts Zero / Identity / Small-Order Inputs" detect/FP entry, with FP gates (library subgroup-checks on deserialization; `ecrecover` compared to non-zero expected signer; BN254 G1 cofactor-1 exemption; pinned pubkey).
+
+### Changed
+- **`references/attack-vectors/attack-vectors.md` #174** (Missing Oracle Price Bounds) — added a reverse cross-link to #267 framing #174 as the CONSUMER-side defense and #267 as the VERIFIER-side root cause (the two boundaries of the Bonzo incident).
+- **`methodology/INDEX.md`** — registered M-31 in the Entries table.
+- **`LEARNED_INDEX.md`** — one-line external-incident enrichment entry (v1.26.0).
+
 ## [1.25.0] - 2026-07-08
 
 **Origin**: Repo-wide code review (three parallel reviewers over the Python scripts, shell scripts, and driver↔prompt↔gate consistency). This release fixes the high-confidence, low-risk correctness bugs the review surfaced; a set of architectural findings that need a live pipeline run or a design decision were reported separately, not auto-fixed. Selfcheck stays green (now 13 checks, with the blind-stripper gate hardened to honor exit codes). Mechanism/robustness only — no stored bug patterns.

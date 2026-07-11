@@ -873,7 +873,7 @@
 
 **174. Missing Oracle Price Bounds (Flash Crash / Extreme Value)**
 
-- **D:** Oracle returns a technically valid but extreme price (e.g., ETH at $0.01 during a flash crash). No min/max sanity bound or deviation check against historical/secondary price. Protocol executes liquidations or swaps at wildly incorrect prices.
+- **D:** Oracle returns a technically valid but extreme price (e.g., ETH at $0.01 during a flash crash). No min/max sanity bound or deviation check against historical/secondary price. Protocol executes liquidations or swaps at wildly incorrect prices. This is the CONSUMER-side defense against a manipulated/compromised feed — see #267 for the VERIFIER-side bug that lets a manipulated feed through in the first place (Bonzo Lend / Supra, ~$10M).
 - **FP:** Circuit breaker: `require(price >= MIN_PRICE && price <= MAX_PRICE)`. Deviation check against secondary oracle source. Heartbeat + price-change-rate limiting.
 
 **175. Function Selector Clashing (Proxy Backdoor)**
@@ -1330,6 +1330,11 @@
 
 - **D:** Verified source doesn't match deployed bytecode behavior: different compiler settings, obfuscated constructor args, or `--via-ir` vs legacy pipeline mismatch. No reproducible build (no pinned compiler in config).
 - **FP:** Deterministic build with pinned compiler/optimizer in committed config. Verification in deployment script (Foundry `--verify`). Sourcify full match. Constructor args published.
+
+**267. Pairing / BLS Signature-Verifier Accepts Zero / Identity / Small-Order Inputs**
+
+- **D:** An on-chain verifier of a BLS/pairing signature (or ZK proof) feeds untrusted curve points to a pairing precompile (`ecPairing` `0x08`, EIP-2537, `alt_bn128_pairing`, `blst`) or uses `ecrecover` WITHOUT first checking the signature and public key are non-zero / non-identity, in the correct prime-order subgroup, and on-curve. With a zeroed signature and zero pubkey the pairing collapses to `e(0,G2) == e(H(m),0)` → `1 == 1`, so the precompile returns true and the verifier treats a mathematically-valid-but-meaningless equation as a valid committee signature. `ecrecover` variant: return value `address(0)` on malformed input trusted without an `address(0)` reject. Origin: Bonzo Lend / Supra oracle, Hedera 2026 — zeroed BLS sig inflated an oracle price ~1e12x, ~$9.05M borrowed against ~$2 collateral. See methodology M-31 and consumer-side #174.
+- **FP:** Verifier calls a library that subgroup-checks + rejects identity on deserialization (`blst *_in_g1/g2`, EIP-2537 precompiles which subgroup-check by spec). `ecrecover` result compared to a known non-zero expected signer (`require(recovered == expectedSigner)`). BN254 G1 subgroup check omitted is safe (cofactor 1) — only G2 / BLS12-381 / other-curve subgroup gaps are exploitable. Committee/pubkey is pinned from trusted storage, not attacker-supplied.
 
 **266. Missing onERC1155BatchReceived Causes Token Lock**
 
