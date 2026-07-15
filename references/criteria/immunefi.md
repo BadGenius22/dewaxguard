@@ -18,6 +18,9 @@
 ## Key Rules
 
 - **Program Primacy**: Each program defines its own scope and severity. Program page overrides defaults.
+- **Scope model — Primacy of Impact vs Primacy of Rules** (decides whether an out-of-scope asset can pay — read the program's own statement before parking anything as OOS):
+  - **Primacy of Rules** (default when the program lists specific assets): an impact is submittable ONLY if it lands on a *listed* in-scope asset. Audit only the enumerated files/addresses; a directory-level asset means the whole dir; when N parallel impls of one interface exist, only the *listed* one is in scope.
+  - **Primacy of Impact** (program opts in): an in-scope *impact* pays EVEN when the triggering asset is not itself listed — do NOT over-filter a valid finding just because the entry-point contract is off the asset list.
 - **PoC MANDATORY** for ALL severities. No PoC = not considered.
 - **First reporter priority**: First valid submission rewarded.
 - **KYC may be required** for payout.

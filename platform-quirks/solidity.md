@@ -54,3 +54,7 @@ Before breadth, identify the upstream base and `git diff` the fork against the *
 
 - Extract & verify the **full** official in-scope asset list before spawning agents (whole-repo vs specific-file vs directory assets; when N parallel impls of one interface exist, only the *listed* one is in scope).
 - **Check the scoped default branch isn't frozen behind unmerged `audit/*` branches** (`git branch -r` + `git log --all --since=<scope-date>`). A frozen `main` with fixes staged on unmerged audit branches = a **known-issue minefield**: the strongest on-branch bugs are already whitehat/audit-firm-reported (duplicates, excluded). Strong deprioritize signal.
+
+## 8. Layer-2 execution quirks (verify the harness models the target chain)
+
+- **`block.number` on Arbitrum returns the L1 block, not the L2 block.** For L2-block semantics use `ArbSys(0x64).arbBlockNumber()`. Any logic — or PoC harness — that treats `block.number` as the L2 height (rate windows, TWAP intervals, deadline checks) is reading the wrong clock. In a fork PoC, `vm.roll` moves `block.number`; if the target reads `ArbSys`, `vm.roll` has no effect and you must mock the precompile at `0x64` instead. Confirm which the contract reads before trusting any timing-dependent PoC result. (`block.timestamp` is L2 wall-clock on Arbitrum and behaves normally — the trap is specifically the block *number*.)

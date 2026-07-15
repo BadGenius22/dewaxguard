@@ -1,5 +1,20 @@
 # DewaxGuard Changelog
 
+## [1.27.0] - 2026-07-15
+
+**Origin**: Session-lesson import from recent live-bounty audit sessions (Parallel V3, Raydium CLMM, DeFi Saver v3, Metric OMM, Twyne). Four methodology gaps passed the RC-AGENT Exclusion Test + anti-bloat gates; two candidates were dropped as already-covered (Immunefi v2.3 impact classification, shipped v1.24.0) and one as RC-AGENT (admin-config severity calibration — already covered by severity-decision-tree + realism-filter + M-27). Methodology only — no stored bug patterns. `extend`-class changes → MINOR bump.
+
+### Added
+- **`rules/fork-poc-execution.md` "Deployed-code provenance"** (EVM section) — impl-slot (EIP-1967) → `cast implementation`/`cast storage`, then 4-byte selector membership-test against the DEPLOYED bytecode before trusting repo HEAD. A missing selector or wrong impl = "audited source differs from deployed" finding + re-scope. Closes the EVM equivalent of the existing Solana program-ID/IDL-drift check. (RC-METHOD; FM-06)
+- **`rules/fork-poc-execution.md` §6 "Common false signals"** — (a) misplaced `vm.expectRevert` on a setup call read as a live guard-defeat → arm-then-observe (wrap only the exploit call in `try/catch`, trace `-vvvv`) before escalating (Twyne L-04 was this artifact); (b) both-regime `vm.store` sweep for clamp-neutralized share/price-manipulation attacks (a `[FORK-FAIL]` in one regime is not a `[FORK-FAIL]` overall). (RC-METHOD + RC-DEPTH; FM-07, FM-08)
+- **`platform-quirks/solidity.md` §8 "Layer-2 execution quirks"** — Arbitrum `block.number` returns the L1 block; use `ArbSys(0x64).arbBlockNumber()` for L2 height. `vm.roll` no-ops when the target reads `ArbSys`; mock the precompile instead. Confirm which clock the contract reads before trusting any timing-dependent PoC. (RC-METHOD; FM-09)
+- **`references/criteria/immunefi.md` scope model** — Primacy of Impact vs Primacy of Rules: under Rules an impact on an unlisted asset is unsubmittable; under Impact an in-scope impact pays even when the triggering asset is off the list. Determine the model before parking a finding as OOS. (RC-METHOD)
+
+### Changed
+- **`prompts/phases/00_preflight.md` §1a** — added HARD "Provenance & claim-verification": (1) audited code == deployed code before spending depth (pointer to fork-poc-execution provenance procedure); (2) propagated factual claims ("live?/in-scope?/guard exists?/already audited?") are hypotheses to check against the primary source before relaying as fact; (3) extract the FULL bounty in-scope asset list + determine the program's scope model. Generalizes the EVM-only scope-extraction discipline (solidity.md §7) to preflight without duplicating detail.
+- **`failure-modes/INDEX.md`** — added FM-06..FM-09 (the four fix-eligible classes above).
+- **`MEMORY.md`** — v1.27.0 metrics row (session-lesson import: 4 RC-METHOD, 1 RC-DEPTH, 1 reclassified to RC-AGENT).
+
 ## [1.26.0] - 2026-07-12
 
 **Origin**: Post-incident knowledge ingestion from the Bonzo Lend / Supra oracle exploit (Hedera mainnet, ~$10M). Attacker submitted a price update carrying a **zeroed BLS signature `[0,0]`**; the oracle's BLS verifier fed the degenerate points to Hedera's pairing precompile and, because both signature and committee key were the identity/zero, the pairing equation `e(0,G2) == e(H(m),0)` collapsed to `1 == 1` and returned true. The verifier never checked its inputs were non-zero and in-subgroup first, so a meaningless-but-mathematically-valid equation was trusted as a valid committee signature — inflating an oracle price ~1e12x and enabling ~$9.05M borrowed against ~$2 of collateral. dewaxguard had M-30 (signature replay/binding) and M-16 (ZK-proof composition) but **zero coverage of verifier input-validation soundness**. Methodology only — no stored bug patterns.

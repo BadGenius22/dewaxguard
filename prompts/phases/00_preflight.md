@@ -31,6 +31,11 @@ For each file below, check existence and record a 1-line summary. Use the Read t
 
 For each, record `PRESENT` or `ABSENT`. Do NOT fail preflight if files are absent — only the source path itself is required.
 
+**Provenance & claim-verification (HARD).**
+- **Audited code == deployed code.** For a LIVE bounty target, confirm the in-scope source is actually what's deployed before spending depth on it — repo HEAD is a hypothesis, not ground truth. See `rules/fork-poc-execution.md` § "Deployed-code provenance" for the EVM impl-slot → selector-membership procedure and the Solana program-ID / IDL check. A divergence is itself a finding ("audited source differs from deployed").
+- **Propagated claims are hypotheses.** Any load-bearing factual claim that reaches a verdict or MEMORY — "target is/isn't live", "asset is in scope", "guard X exists", "already audited" — must be checked against the PRIMARY source (on-chain `eth_getCode`, the program page, the actual code) before it is relayed as fact. A subagent's or recon's assertion is an input to verify, not a conclusion to forward.
+- **Bounty scope model (Immunefi / Cantina / C4-BB).** Before spawning agents, extract the program's FULL in-scope asset list and determine its **scope model** — Primacy-of-Impact vs Primacy-of-Rules (see `references/criteria/{platform}.md`). Under Primacy-of-Rules an impact on an unlisted asset is unsubmittable; under Primacy-of-Impact it can still pay. This decides what depth budget is worth spending and what is parked as out-of-scope.
+
 ### 1b — V12-style AI-auditor outputs (M-25 trigger)
 
 V12 outputs are structured AI-auditor finding catalogs (Zellic V12, similar). When present, they are usually the contest's official "known issues" index — internal findings that match a V12 entry get duplicated by judges. Critical to dedup against.

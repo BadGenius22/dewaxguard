@@ -42,6 +42,17 @@ vm.roll(blockNumber)         // jump to this block number
 vm.startPrank(addr)          // every call below comes from addr until vm.stopPrank
 ```
 
+**Deployed-code provenance (verify BEFORE trusting repo HEAD)** — the audited repo is a hypothesis; the deployed bytecode is ground truth:
+```bash
+# 1. Resolve the live implementation behind the proxy (EIP-1967 impl slot)
+cast implementation <PROXY> --rpc-url $ETH_RPC_URL
+#   or: cast storage <PROXY> 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc
+# 2. Membership-test each audited function against the DEPLOYED bytecode
+cast code <IMPL> --rpc-url $ETH_RPC_URL > /tmp/deployed.hex
+cast sig "yourAuditedFn(uint256,address)"   # 4-byte selector → grep it in /tmp/deployed.hex
+```
+If an audited selector is absent from the deployed bytecode, or the impl address is not what the scope names, STOP: the repo diverges from mainnet. Document "audited source differs from deployed" as a finding and re-scope — do not keep building PoCs against code that isn't live. (Solana equivalent: the mainnet program-ID / IDL-drift check under `### Solana`, point 3.)
+
 ### Solana
 
 ```bash
@@ -145,6 +156,11 @@ Before marking `[FORK-FAIL]` → FALSE_POSITIVE:
 - Try different initial state
 
 After 2+ variant failures → `[FORK-FAIL]` is justified.
+
+### 6. Common false signals — check before trusting a PoC result
+
+- **A failing "should-be-blocked" test is often a test artifact, not a live bug.** A `vm.expectRevert` placed one line too early catches a *harmless setup call* (approve, deal, warp) — the revert fires there and the actual exploit path never runs, yet the test "passes" as if the guard were the finding. Before escalating any expect-revert PoC: trace with `-vvvv` and confirm the revert originates from the exploit call, not from setup. Prefer **arm-then-observe** — perform the setup unguarded, then wrap ONLY the exploit call in `try/catch` (or a raw `.call`) and assert on the observed outcome. (Twyne L-04 was a misplaced `expectRevert`, not a bug.)
+- **Test BOTH economic regimes when a clamp/guard can neutralize the attack.** Over-collateralized or price-clamped systems (perps vaults, GMX-style share pricing) can make a share/price-manipulation attack a no-op in the *current* regime while it is live in another. Use `vm.store` to place the protocol in each regime (clamped vs unclamped, over- vs under-collateralized) and run the PoC in both — a `[FORK-FAIL]` in one regime is not a `[FORK-FAIL]` overall.
 
 ---
 
