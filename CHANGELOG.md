@@ -1,5 +1,17 @@
 # DewaxGuard Changelog
 
+## [1.30.0] - 2026-07-26
+
+**Origin**: Request to let dewaxguard "learn from" a reproduced-exploit corpus (crypto.training / DeFiHackLabs — hundreds of real on-chain hacks with root-cause + Foundry PoC). The trap was to bolt on a stored bug-pattern database, which fights the skill's core principle ("methodology, not stored bug patterns" — the whole reason for the adversary gate + refuted index). Instead this routes the corpus through the learning loop that already exists (`/dewaxguard batch-import` → coverage check → `failure-modes/INDEX.md` class-level ledger → M-template proposal + `benchmarks/` seed), adding the deterministic backbone that the uniform PoC-corpus source makes possible. Learning stays at the class / evaluation level; the specific exploits never persist. Selfcheck is now 14 checks.
+
+### Added
+- **`scripts/import_exploits.py`** — deterministic backbone for the exploit-corpus source. Ingests a normalized corpus JSON and (a) runs a keyword co-occurrence coverage check per class (COVERED / PARTIAL / NOT_COVERED — is there a methodology file actually *about* this class, not just the words scattered), aggregates by `(class, language)`, applies the same `>= min-occurrences` recurrence filter as batch-import, and emits paste-ready `failure-modes/INDEX.md` candidate rows merged against existing FM rows; and (b) `--scaffold-benchmarks` creates `benchmarks/<lang>/<slug>/` ground-truth + manifest skeletons for a blind, scored regression case. **Anti-anchoring by construction**: persisted output carries only generic class + language + root cause — the corpus may include `name`/`loss_usd`/`date`/`chain`, but those are never written out. `--json` mode; validated on the real crypto.training slice (12 recent hacks → surfaced `amm-reserve-desync` skim/sync reserve manipulation as a recurring uncovered class).
+- **`scripts/fixtures/exploit-corpus.sample.json`** — generic (synthetic, no real protocol names) sample corpus documenting the input schema and driving selfcheck's importer test.
+- **`scripts/selfcheck.sh` check 14** — importer present + executable, runs on the sample corpus, and (anti-anchoring lint) leaks none of the sample's identifying fields into its output.
+
+### Changed
+- **`improve/BATCH-IMPORT.md`** — added "Option D: Reproduced-exploit corpus (DeFiHackLabs / crypto.training)" describing the normalize → `import_exploits.py --coverage` → aggregate → FM-rows / M-template / benchmark-scaffold flow, under the existing Anti-Anchoring Rules. The specific exploits are a learning input, not a pattern store.
+
 ## [1.29.0] - 2026-07-21
 
 **Origin**: Full source evaluation of `Kritt-ai/open-kritt` @ `6f9abc4` (~18.6k lines) for portable mechanisms. Five parallel extraction tracks; **three yielded nothing adoptable** — kritt's dedup, severity scoring, refusal path, and retry logic are each weaker than the existing equivalents (`scripts/dedup.py`, `shared-rules.md` severity self-calibration, the FINDING→LEAD tier, the driver's targeted `RETRY_HINT`). Two capabilities survived the anti-bloat gates. Not post-mortem-driven, so no RC classification applies — this is a capability import, not a miss fix. New script + new gate → MINOR bump.

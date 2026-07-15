@@ -56,6 +56,37 @@ Provide a list of contests to process:
 3. ...
 ```
 
+### Option D: Reproduced-exploit corpus (DeFiHackLabs / crypto.training)
+
+A library of real on-chain hacks with root-cause + standalone Foundry PoC (e.g.
+[crypto.training/hacks](https://crypto.training/hacks/), adapted from
+SunWeb3Sec's DeFiHackLabs). Hundreds of entries, categorized by class/chain/year.
+This is a **learning input**, not a pattern store — the same Anti-Anchoring Rules
+below apply: the specific exploits never persist; only class-level methodology and
+(optionally) blind benchmarks do.
+
+Because this source is uniform (each entry = class + root-cause + PoC), it has a
+deterministic backbone script — you do NOT hand-run the coverage check per entry:
+
+```bash
+# 1. Normalize the corpus to JSON (one object per exploit; see the schema at the
+#    top of scripts/import_exploits.py). Example shape: scripts/fixtures/exploit-corpus.sample.json
+# 2. Class-level coverage + failure-mode candidates (the mechanical Phase 3+4):
+python3 scripts/import_exploits.py --corpus corpus.json
+# 3. Also scaffold blind benchmarks for entries carrying a `benchmark` block:
+python3 scripts/import_exploits.py --corpus corpus.json --scaffold-benchmarks benchmarks/
+```
+
+The script does the keyword co-occurrence coverage check (COVERED / PARTIAL /
+NOT_COVERED per class), aggregates by `(class, language)`, applies the same
+`>= min-occurrences` recurrence filter, and emits paste-ready `failure-modes/INDEX.md`
+rows (merged against existing FM rows) plus benchmark scaffolds. Its persisted
+output carries **only** generic class + language + root cause — never a protocol
+name, loss, or date (it strips those by construction). The LLM's job is then to
+review its candidates (Phase 3 refinement below), write the minimal fork-free
+benchmark contracts, and turn NOT_COVERED recurring classes into M-template
+proposals (Phase 5).
+
 ---
 
 ## Phase 2: Finding Extraction (per contest)
