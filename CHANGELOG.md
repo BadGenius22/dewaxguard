@@ -1,5 +1,18 @@
 # DewaxGuard Changelog
 
+## [1.28.0] - 2026-07-16
+
+**Origin**: Metric OMM re-audit (Sherlock #1279). One methodology gap passed the RC-AGENT Exclusion Test + anti-bloat gates: the existing Phase 5d Gate 2 verifies load-bearing *enablers* but not the *full* claim set (mechanism chain, dedup, severity basis) of a final candidate. An adversarial line-by-line pass on three final candidates verified every mechanical claim to `file:line` (zero verification debt), corrected one REFUTED mechanism assumption a one-directional score pass had accepted, and caught a leaked internal PoC ID. Methodology only — no stored bug patterns. `extend`-class (extends Gate 2, no fork; final-candidate-gated for cost) → MINOR bump.
+
+### Added
+- **`methodology/M32-claim-ledger-verification.md`** — final-candidate (score >= 70) adversarial per-claim source verification. Decompose finding → atomic claims (mechanism / enabler / dedup / severity) → verify EACH to `file:line` via a two-sided refute+defend read (code decides, no uncited assertions) → classify VERIFIED / REFUTED / JUDGMENT → emit a verification ledger + verification-debt verdict + quarantined JUDGMENT residual. HARD gate: verification debt must be `none` before the report; a REFUTED load-bearing claim blocks submission. Extends Phase 5d Gate 2 (`enabler_check`) from enablers to the full claim set; does NOT resolve severity (quarantines it as JUDGMENT — that stays with `severity-decision-tree` + M-27). Cross-language (language-agnostic ledger). Hooked as **Phase 5d Gate 5 / Phase 5d.2**; indexed in `methodology/INDEX.md`. (RC-METHOD)
+
+### Anti-bloat gates (per post-audit-improvement-protocol)
+- **Line budget**: 1 new methodology file (~155 lines) + 2 one-line hooks (phase list + Gate 5) + 1 index row. No file approaches its cap.
+- **Overlap**: extends Gate 2 rather than forking a parallel judge (>60%-overlap rule) and reuses `enabler_check`; does not duplicate the severity tree or M-27.
+- **Methodology-not-pattern**: encodes HOW to verify claims; stores no bug pattern.
+- **Cost**: gated to final candidates (score >= 70) only — never breadth/depth/LEAD.
+
 ## [1.27.0] - 2026-07-15
 
 **Origin**: Session-lesson import from recent live-bounty audit sessions (Parallel V3, Raydium CLMM, DeFi Saver v3, Metric OMM, Twyne). Four methodology gaps passed the RC-AGENT Exclusion Test + anti-bloat gates; two candidates were dropped as already-covered (Immunefi v2.3 impact classification, shipped v1.24.0) and one as RC-AGENT (admin-config severity calibration — already covered by severity-decision-tree + realism-filter + M-27). Methodology only — no stored bug patterns. `extend`-class changes → MINOR bump.

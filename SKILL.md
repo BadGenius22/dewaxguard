@@ -120,6 +120,7 @@ Phase 5c:   Mainnet Fork PoC (Critical/High/Medium)
 Phase 4b.5: RAG Validation Sweep (Solodit precedent lookup — see rules/rag-validation-sweep.md)
 Phase 5d:   Bug Validator (platform-specific scoring, uses RAG score)
 Phase 5d.1: Submission Hardening (fix deductions > 5pts, re-score until >= 85)
+Phase 5d.2: Claim-Ledger Verification (M-32 — final candidates >= 70: per-claim source verification, verification-debt gate, before report)
 Phase 5e:   Self-Calibration (automatic — agent FP rates, confidence accuracy)
 Phase 6:    Report (submission-ready)
 ```
@@ -397,6 +398,17 @@ Finding X-NN: [Title]
 ├─ Verdict: ✅ LIKELY VALID / ⚠️ BORDERLINE / ❌ LIKELY REJECTED
 └─ Improvements: [if borderline]
 ```
+
+### Gate 5 — Claim-Ledger Verification (final candidates only, per `methodology/M32-claim-ledger-verification.md`)
+
+For every finding scoring **>= 70** (FINDING-class), BEFORE it enters the Phase 6 report:
+
+1. **Decompose** the finding into atomic claims — mechanism chain, enablers (reuse Gate 2 `enabler_check`), dedup/distinctness, severity basis.
+2. **Verify each against source** with a `file:line` citation, via an adversarial two-sided read (refute + defend; the code decides). Never mark VERIFIED without a citation; never credit an uncited rebuttal (either direction).
+3. **Classify** each: VERIFIED / REFUTED / JUDGMENT (not-a-code-fact — severity, runtime/economic, off-chain timing).
+4. **Emit** `{SCRATCHPAD}/verify_ledger_{id}.md` (claim → line → verdict) + a one-line **verification-debt** verdict + the JUDGMENT-only residual.
+
+**HARD gate**: a finding ships only when **verification debt == none** (no unverified/refuted load-bearing claim) AND the JUDGMENT residual is non-empty-honest (a finding with zero interpretive residual is a red flag — a JUDGMENT claim was likely mislabeled VERIFIED). A REFUTED load-bearing claim sends it back (correct the writeup or drop). Do NOT run on LEAD/excluded findings (cost). Extends Gate 2 from load-bearing enablers to the full claim set; does NOT resolve severity (that stays with `severity-decision-tree` + M-27).
 
 ---
 
