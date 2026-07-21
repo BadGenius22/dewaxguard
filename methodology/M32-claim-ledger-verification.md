@@ -2,7 +2,7 @@
 id: M-32
 name: claim-ledger-verification
 trigger_type: process
-trigger: "final submittable candidates only — every finding scoring >= 70 in Phase 5d, before it enters the report"
+trigger_event: "final submittable candidates only — every finding scoring >= 70 in Phase 5d, before it enters the report"
 trigger_languages: [all]
 applies_to_protocol_types: [any]
 recon_flags: []

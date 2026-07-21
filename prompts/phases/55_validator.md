@@ -48,6 +48,31 @@ docs_intent_check: NO_MATCH           # no doc claim covers this — proceed
 
 REJECT → reject. DOWNGRADE → continue but cap severity. ESCALATE → continue with severity floor.
 
+**Gate 1b — Upstream patch status (bounty engagements only)**
+
+> **Applies ONLY when the engagement is judged against LIVE / current code** — Immunefi, HackenProof, Cantina bounty, or any "is this exploitable today?" program. **SKIP for contests judged on a pinned commit** (Code4rena competitive, Sherlock competitive): there, an upstream fix landing after the audit snapshot does NOT invalidate a finding on the audited commit, and rejecting on that basis would discard valid submissions.
+
+Cheap (one git fetch) and placed before the PoC gate so an already-fixed bug never burns a verification slot.
+
+```bash
+python3 {{SKILL_ROOT}}/scripts/patch_status.py \
+    --repo {{PROJECT_ROOT}} \
+    --path <finding location.file> \
+    --commit <audited commit, or HEAD> \
+    --pickaxe '<the vulnerable expression, pasted literally from the finding>'
+```
+
+Read the `status` field:
+
+| status | Meaning | Action |
+|---|---|---|
+| `available` + a diff/commit touching the finding's code | Upstream moved past the audited commit AND changed this code | Read the diff. If it removes the vulnerability → `gate1b_patch_status: FAIL — fixed upstream in <sha>` and **reject**, naming the exact fixing commit. |
+| `available`, empty diff, no pickaxe hit | Upstream moved but never touched this code | Not patched — proceed. |
+| `current_default` | The audited commit IS the current upstream HEAD | Nothing has moved — proceed. |
+| `unavailable` | No comparison was possible (no network, fork, rewritten history, local-mirror origin) | **No conclusion exists.** Proceed to the next gate and record `patch_status: NEEDS_MANUAL_REVIEW` with the tool's `reason`. |
+
+`unavailable` means *unknown* — never read it as "not patched", and never as "patched". Do not claim to have run any git command whose output is not in this script's JSON.
+
 **Gate 2 — Reachability**
 
 For PoC findings: run the PoC referenced in `verify_<id>.md`. If it doesn't compile or doesn't pass: mark `gate2_reachability: FAIL` and reject.
