@@ -34,15 +34,7 @@ allowed-tools: Bash(*) Read(*) Write(*) Grep(*) Glob(*) Agent(*)
 
 ### Why this is mandatory
 
-Without these files loaded:
-- Hypotheses already refuted in past sessions get re-investigated (waste)
-- DEEP_DIVE_PLAN intentions diverge from SCOPE_HINTs (lost coverage)
-- Cross-audit M-templates fail to apply when relevant (lost methodology multiplier)
-- Past audit failure modes (RC-METHOD/SCOPE) repeat
-
-### Failure mode
-
-If the orchestrator skips this preflight, all subsequent breadth/depth output is suspect. The post-audit Phase A retrospective will detect this as a recall regression vs prior audits. Log "preflight skipped" to MEMORY.md as a workflow violation.
+Skipping preflight makes all downstream breadth/depth output suspect — refuted hypotheses get re-investigated, DEEP_DIVE_PLAN intentions diverge from SCOPE_HINTs, and past-audit failure modes repeat. The Phase A retrospective flags it as a recall regression vs prior audits. Log "preflight skipped" to MEMORY.md as a workflow violation.
 
 ### Self-check before declaring preflight complete
 
@@ -416,17 +408,7 @@ For every finding scoring **>= 70** (FINDING-class), BEFORE it enters the Phase 
 
 After depth loop exits, validate every finding against historical precedent in the Solodit database.
 
-**See full spec**: `rules/rag-validation-sweep.md`
-
-**MCP tools used** (in priority order):
-1. `mcp__unified-vuln-db__validate_hypothesis` — primary validation, returns 0-10 confidence score
-2. `mcp__unified-vuln-db__search_solodit_live` — live Solodit search, returns historical matches
-3. `mcp__unified-vuln-db__get_similar_findings` — fallback if above fail
-4. `mcp__unified-vuln-db__get_common_vulnerabilities` — secondary fallback
-5. `mcp__unified-vuln-db__analyze_code_pattern` — pattern-based lookup
-6. `mcp__unified-vuln-db__get_root_cause_analysis` — root cause taxonomy lookup
-7. `mcp__unified-vuln-db__get_attack_vectors` — attack vector enumeration
-8. **WebSearch fallback**: `site:solodit.xyz {keywords}` if all MCP tools fail
+**Full spec (tool priority + fallback chain)**: `rules/rag-validation-sweep.md` — priority `validate_hypothesis` → `search_solodit_live` → `get_similar_findings`/`get_common_vulnerabilities`/`analyze_code_pattern`, then `site:solodit.xyz` WebSearch if all MCP tools fail.
 
 **Output**: `{SCRATCHPAD}/rag_validation.md` — consumed by Phase 5d (bug validator) and Phase 5d.1 (submission hardening).
 
