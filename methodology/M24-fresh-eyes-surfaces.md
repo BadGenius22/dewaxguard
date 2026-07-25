@@ -50,6 +50,7 @@ Build a list of 5-8 surfaces NOT covered by the current hypothesis set. Categori
 6. **Dead code paths** (`if false`, conditional features) — could be silently activated
 7. **Test-only code that survived to production** (constants like `TEST_MODE`, fixture helpers)
 8. **Inline TODO/FIXME/HACK comments** — explicit known-bug markers
+9. **Never-externally-reviewed files** (re-audits only) — diff the contest's in-scope file list against the union of every prior audit's scope list from `{SCRATCHPAD}/prior_audit_scopes.md` (**M-10 step 3a**). Files in the current scope but in NO prior scope have had zero external review, and on a post-fix re-audit they are systematically where new code landed. Decompose these BY FILE (one agent per file or tight inheritance cluster), not by vulnerability lens — a re-audit has usually already been swept lens-wise, and narrow single-file scope is what buys depth that broad passes dilute. Rank by cross-referencing against your own artifacts: lowest mention count + zero prior review = thinnest coverage. Note: yields nothing on a first audit (no prior scope to diff) and is unvalidated for bug-finding — it demonstrably closes surface, but has not yet caught a bug.
 
 For each surface, note:
 - Why prior passes missed it (1 sentence)

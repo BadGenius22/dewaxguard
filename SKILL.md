@@ -299,6 +299,8 @@ See: `agents/nemesis/feynman.md` and `agents/nemesis/state-inconsistency.md`
 
 > **Plain-English requirement**: every PoC file written in this phase MUST follow `rules/plain-english-style.md`. The orchestrator passes that file to every PoC-writer agent's input list. Variable names use roles (`attacker`, `victim`, `owner`), comments explain the attack story in plain English (use the cheatcode-comment dictionary), numbers are round unless the exact number is the bug.
 
+> **Parallel-agent isolation**: when spawning more than one PoC-writing agent at a time, give each its own git worktree (`isolation: "worktree"`) or a unique test subdirectory. Agents sharing one test tree collide: in a 34-agent fan-out, ONE agent's non-compiling harness blocked `forge build` for the entire suite, so later agents had to quarantine-and-restore each other's files mid-run — burning tokens and risking corrupted results. If isolation is unavailable, require each agent to name files with an agent-unique prefix and to verify the suite still compiles before it returns.
+
 For each finding with severity >= Medium:
 
 ### EVM (Foundry):

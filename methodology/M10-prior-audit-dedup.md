@@ -24,6 +24,7 @@ Apply once per finding, after PoC is running and before calling it "submission-r
 1. **Identify prior audits** listed in the contest README or announced in Discord.
 2. **Fetch each one** (WebFetch for HTML; curl + pypdf for PDFs).
 3. **Extract structurally**: title, severity, 1-sentence root cause.
+3a. **Also extract the report's own SCOPE** — its audited file list, plus its `Audited Commit → Final Commit` pair if stated. Write to `{SCRATCHPAD}/prior_audit_scopes.md`, one section per report. Two payoffs beyond dedup: (i) when a report's Final Commit equals the contest's scope commit, the code on disk IS the post-fix state those reviewers signed off on — so blanket per-finding fix-tracing is unnecessary, and diffing the two file lists tells you whether you are looking at point fixes or an architecture rewrite (prior findings targeting now-deleted files are moot); (ii) the file list feeds the coverage diff at **M-24 Phase 1 item 9**, which is where never-externally-reviewed code gets identified. Cheap — the reports are already fetched and parsed at step 2.
 4. **Match** against your finding:
    - Same transactor / function name? **Investigate deeper**, not automatic duplicate.
    - Same root cause mechanism? **LIKELY DUPLICATE**.
