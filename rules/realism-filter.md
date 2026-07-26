@@ -18,6 +18,7 @@ Every finding MUST be tagged with one of:
 | `unreachable-precondition` | Trigger requires a state combination that cannot occur in any realistic deployment | **REJECT** unless reachability is proven |
 | `semi-trusted-role` | Trigger is a semi-trusted actor (operator, keeper, oracle relayer) acting within stated trust assumption | **−1 severity tier** (per severity-matrix.md downgrade modifier) |
 | `compromised-key` | Exploit chain's precondition includes a leaked / phished / compromised private key (victim user EOA, admin, or operator) | **REJECT** — auto-invalidator on virtually every bug-bounty program; surface as Informational at most, no PoC / bug-validator spend |
+| `uneconomic-grief` | Trigger IS permissionless and the victim IS involuntary, but the attacker's **unrecoverable** cost meets or exceeds the quantified victim harm — griefing that costs the griefer more than the grief | **Cap at Low** (per `rules/severity-matrix.md` → Grief economics). Do NOT reject: the underlying defect is usually real and belongs in the QA/Low bundle |
 
 ---
 
@@ -38,8 +39,19 @@ For each candidate finding, walk in order:
    NO  → continue
 
 2. Is the trigger callable by an unprivileged actor with no special role assumptions?
-   YES → tag = permissionless → continue to severity-decision-tree
-   NO  → continue
+   YES → continue to 2a (permissionless is NOT yet final for availability findings)
+   NO  → continue to 3
+
+2a. Is the finding's impact availability / griefing (DoS, queue blocking, liveness)
+    rather than theft, fund loss, or accounting drift?
+   NO  → tag = permissionless → continue to severity-decision-tree
+   YES → is the attacker's UNRECOVERABLE cost >= the quantified victim harm?
+         (burnt dust, locked principal, sacrificed position — cost the attacker
+          never gets back; compare against harm in $ or "delay only, no funds lost")
+         YES → tag = uneconomic-grief → cap at Low, route to QA/Low bundle
+         NO  → tag = permissionless → continue to severity-decision-tree
+         UNQUANTIFIED → tag = uneconomic-grief → cap at Low until both
+                        `attacker_cost:` and `victim_harm:` are declared
 
 3. Does the trigger require a TRUSTED role (admin, governance, fully-trusted multisig)?
    YES → tag = admin-trust → park to ADDITIONAL_LEADS (default platform policy)
@@ -99,10 +111,18 @@ Every finding written by an agent MUST include:
 ```markdown
 ## Finding [{PREFIX}-N]: Title
 ...
-**Realism Filter**: permissionless | admin-trust | design-choice | unreachable-precondition | semi-trusted-role | compromised-key
+**Realism Filter**: permissionless | admin-trust | design-choice | unreachable-precondition | semi-trusted-role | compromised-key | uneconomic-grief
 **Filter Reason**: [1-line explanation of why this tag applies]
 **Trigger Actor**: [specific role or "any user"]
 ...
+```
+
+For any **availability / griefing** finding, three further fields are MANDATORY (the severity router caps the finding at Low without them):
+
+```
+attacker_cost: [concrete figure + whether it is RECOVERABLE or UNRECOVERABLE]
+victim_harm:   [concrete figure, or "delay only, no funds lost, recoverable via X"]
+operator_recoverable: true | false   [if false, one clause on why no routine admin action helps]
 ```
 
 Findings without a `Realism Filter` field default to `admin-trust` (most conservative) and route to ADDITIONAL_LEADS pending review.
@@ -117,6 +137,7 @@ Phase 5d (bug validator) MUST:
 3. Apply -1 severity tier for `Realism Filter: semi-trusted-role` (floor: Informational)
 4. Reject any finding with `Realism Filter: unreachable-precondition` unless reachability is proven via code path
 5. Reject any finding with `Realism Filter: compromised-key` (out-of-scope on virtually every program; surface Informational at most, no PoC / bug-validator spend)
+6. Cap at Low any finding with `Realism Filter: uneconomic-grief`, and any availability/griefing finding that is operator-recoverable or has not declared `attacker_cost:` + `victim_harm:`. This is enforced mechanically by `scripts/severity_router.py::apply_grief_economics` — including the **self-admission rule**: a finding whose own text concedes a recovery path ("the TREASURY can still recover", "requires manual fills") is treated as operator-recoverable unless it explicitly sets `operator_recoverable: false`.
 
 This filter runs BEFORE the severity-decision-tree (`rules/severity-decision-tree.md`). The decision tree assumes the filter has already pruned non-permissionless findings.
 
@@ -138,6 +159,7 @@ By making the filter first-class:
 ## Validated Audits
 
 - **K2 Code4rena (2026-04)**: Realism filter reclassified ~40% of candidate findings. Without it, the audit would have shipped 4-5 contested Mediums (all admin-trust) that judges would have rejected, diluting the 1 valid Medium.
+- **DRE Sherlock (2026-07)** — origin of `uneconomic-grief`: a **real** defect (wrong-list compliance check + no `try/catch`, permanently bricking the keeper withdrawal queue) was tagged `permissionless` — correctly, by the then-current filter — and shipped as Medium with a passing end-to-end fork PoC. Rejected: *"attacker will lose way more than the party being affected."* The attacker's dust was unrecoverable; victims suffered only delay the TREASURY could clear. The filter had six tags, all about **reachability and consent**, and none about **economic rationality** — it asked "is there an involuntary victim?" (yes) but never "does the attacker pay more than the victim loses?" (yes). The gap was that the attacker-cost dimension already existed in `rules/l1-severity-matrix.md`, `references/criteria/immunefi.md` and `M16`, and had never been generalized to the smart-contract path.
 
 ---
 

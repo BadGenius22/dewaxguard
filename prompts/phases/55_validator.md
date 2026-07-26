@@ -102,6 +102,35 @@ Then apply downgrade modifiers from `{{SKILL_ROOT}}/rules/severity-matrix.md`:
 - On-chain-only exploit → −1 tier
 - `realism_filter: admin-trust` → −1 tier (per realism-filter.md)
 
+**Gate 4a — Grief economics (HARD; availability/griefing findings only)**
+
+If the finding's impact is **availability** (DoS, queue/batch blocking, liveness, bricking) rather than theft, fund loss, or accounting drift, a `b=YES` answer is **provisional**. Run all three gates from `{{SKILL_ROOT}}/rules/severity-matrix.md` → *Grief economics*. Any FAIL caps the finding at **Low** and routes it to the QA/Low bundle (do NOT reject — the defect is usually real):
+
+```
+G1 economic rationality: is the attacker's UNRECOVERABLE cost < the quantified victim harm?
+G2 operator recovery:    can a routine privileged action (treasury fill, admin skip, re-queue)
+                         restore service with no funds lost?              → YES = FAIL
+G3 quantification:       are BOTH `attacker_cost:` and `victim_harm:` declared with figures?
+```
+
+**Self-admission scan (mechanical, do this literally).** Grep the finding's own Description / Impact / Recommendation prose for a conceded recovery path:
+
+```
+TREASURY can | admin can | owner can | operator can | governance can
+can still recover | can still operate | manual fill | manually filling | work around | fill around
+```
+
+A hit means the writeup has already conceded **G2**. Treat it as `operator_recoverable: true` and cap at Low unless the finding explicitly carries `operator_recoverable: false` with a justification. A writeup that argues *High → Medium* on the strength of a recovery path has conceded the same fact that argues *Medium → Low*.
+
+Emit the verdict in `severity_check:`:
+```
+severity_check: a=NO, b=YES (liveness) → MEDIUM;
+                G2 FAIL — impact text concedes "the TREASURY can still recover funds"
+                → cap LOW
+```
+
+> **Origin (DRE, Sherlock 2026-07)**: a real wrong-list DoS defect shipped as Medium with a passing end-to-end fork PoC and was rejected — *"attacker will lose way more than the party being affected."* The writeup itself contained the disqualifier and used it only to argue down from High. **A passing PoC does not clear these gates**: an executable oracle proves the mechanism, never the economics.
+
 If claimed severity differs from tree result by >1 tier, score deduction applies (see platform scoring below).
 
 **Gate 5 — Realism filter**

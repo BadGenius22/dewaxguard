@@ -61,9 +61,16 @@ YES if any of the following hold:
 3. **Invariant break**: a protocol-declared invariant (from docs, from `fuzz/invariants.rs`, or from on-chain code comments) can be violated.
 4. **Material accounting inconsistency**: a balance / supply / accumulator can drift from its source-of-truth identity, even if no theft is possible right now (the drift is the bug; theft would be a downstream consequence).
 
+### b-qualifier — availability answers require the grief-economics gates (HARD)
+
+A **liveness / availability** answer of b=YES is provisional. Before it stands, the finding MUST clear all three gates in `rules/severity-matrix.md` → *Grief economics*: G1 economic rationality (attacker's unrecoverable cost < quantified victim harm), G2 operator recovery (no routine privileged action restores service), G3 quantification (`attacker_cost:` and `victim_harm:` both declared). Failing any gate caps the finding at **Low**, regardless of how cleanly the DoS reproduces.
+
+This qualifier exists because b=1 ("a core entry point can be DoS'd by an attacker") is trivially satisfiable — nearly every griefing claim reaches it — and on its own it inflated a real DRE defect to Medium that judges scored as no finding at all. Compounding-accounting (b=2), invariant breaks (b=3), and accounting inconsistency (b=4) are **not** subject to the gates; they describe value drift, not availability.
+
 Examples:
-- ✅ b=YES: `liquidationCall()` can be DoS'd by a tiny dust deposit that hits a 200-storage-read limit.
-- ✅ b=YES: `liquidity_index` updates skip a write path, slowly under-counting accrued interest.
+- ✅ b=YES: `liquidity_index` updates skip a write path, slowly under-counting accrued interest. *(b=2, not availability — gates do not apply.)*
+- ⚠️ b=PROVISIONAL: `liquidationCall()` can be DoS'd by a tiny dust deposit that hits a 200-storage-read limit. *Availability claim — run the gates.* It holds at Medium only if the dust is cheap **and** recoverable by the attacker **and** no admin path clears it **and** the victim harm is quantified (e.g. positions stay underwater and bad debt accrues). If the dust is burned and an operator can clear the queue, this is **Low**.
+- ❌ b=NO → Low: a permissionless dust action bricks an automated queue, but the treasury can fill around it and no funds are lost — the attacker pays more than the victims lose. *(DRE 2026-07: submitted Medium with a passing fork PoC, rejected outright.)*
 - ❌ b=NO: a view function returns slightly stale data when called between two state mutations within the same block — read-only, no compound impact.
 
 ---
@@ -96,6 +103,7 @@ Final severity:    LOW
 ```
 
 Modifiers:
+- **Grief economics** — a DoS/griefing finding failing G1 (uneconomic), G2 (operator-recoverable), or G3 (unquantified) → **cap at Low**. See `rules/severity-matrix.md` → Grief economics. Applied mechanically by `scripts/severity_router.py`; runs before the proven-only cap, so a `[FORK-PASS]` cannot rescue it.
 - Attack requires FULLY_TRUSTED actor (governance multisig, DAO, timelock) → −1 tier (floor: Info).
 - View-function-only impact → cap at Medium.
 - On-chain-only exploit (no UI/off-chain path AND impact confined to on-chain state) → −1 tier.
@@ -105,6 +113,17 @@ The `severity_check:` field MUST record both the pre-modifier and post-modifier 
 
 ```
 severity_check: a=NO, b=YES (liveness) → MEDIUM; modifier: requires pool-admin → LOW (floor)
+```
+
+For any **availability / griefing** finding, `severity_check:` must also show the grief-economics gates, and the finding body must carry the three declared fields:
+
+```
+severity_check: a=NO, b=YES (liveness) → MEDIUM;
+                G1 attacker cost $12 unrecoverable vs victim harm = delay only → FAIL
+                → cap LOW
+attacker_cost: ~$12 dust + gas, UNRECOVERABLE (NFT parked at a blacklisted address)
+victim_harm:   withdrawals delayed until TREASURY manually fills; no funds lost
+operator_recoverable: true
 ```
 
 ---

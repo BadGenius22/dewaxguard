@@ -394,6 +394,12 @@ def merge_cluster(cluster_findings: list[dict]) -> tuple[dict, list[dict]]:
     canonical_copy["evidence_tags"] = evidence
     # realism: keep the most-restrictive non-permissionless tag if present
     realism_priority = {
+        # uneconomic-grief is a REFINEMENT of permissionless (trigger is still
+        # permissionless; the economics cap it). When one agent tags a finding
+        # `permissionless` and another `uneconomic-grief`, the latter did the
+        # cost/harm analysis, so its verdict wins. The cap is Low, not reject —
+        # an over-cap still ships in the QA bundle, an over-claim gets rejected.
+        "uneconomic-grief": 6,
         "permissionless": 5,
         "semi-trusted-role": 4,
         "admin-trust": 3,

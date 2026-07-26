@@ -1,5 +1,28 @@
 # DewaxGuard Changelog
 
+## [1.31.0] - 2026-07-26
+
+**Origin**: DRE Sherlock post-mortem (2026-07). A **real** defect — the wrong-list compliance check in `fillWithdrawal` (dreUSD freeze list checked, USDC blacklist paid, no `try/catch`), permanently bricking the automated keeper queue — was submitted as Medium with a passing end-to-end fork PoC and rejected: *"attacker will lose way more than the party being affected(protocol here), I don't see how this should be Medium/High at all."* The attacker's dust was unrecoverable; the victims suffered only delay the TREASURY could clear manually.
+
+Every gate behaved correctly by its own rules. The realism filter tagged it `permissionless` (true — the trigger is permissionless and the victims are involuntary) → *"No adjustment"*. The severity tree answered `b=YES` on liveness → Medium. `references/criteria/sherlock-bounty.md` lists *"Medium | Griefing; DoS"*. The pipeline read its rulebook and got Medium. **The rulebook was missing a dimension it already had elsewhere**: attacker-cost-vs-victim-harm lived in `rules/l1-severity-matrix.md` ("Single-node DoS with high attacker cost → Low"), `references/criteria/immunefi.md` ("Medium 'Griefing' requires DEMONSTRATED damage") and `M16` ("unless easy-to-trigger with zero attacker cost") — and had never been generalized to the smart-contract path. This release generalizes it. Methodology + mechanism only — no stored bug patterns.
+
+### Added
+- **`rules/severity-matrix.md` → Grief economics** — three mandatory gates for any DoS/griefing finding: **G1** economic rationality (attacker's *unrecoverable* cost < quantified victim harm), **G2** operator recovery (a routine privileged action restores service, no funds lost), **G3** quantification (both `attacker_cost:` and `victim_harm:` declared). Any FAIL caps at **Low**. Includes the **self-admission rule**: a finding whose own text concedes a recovery path ("the TREASURY can still recover", "requires manual fills") is treated as operator-recoverable unless it explicitly sets `operator_recoverable: false`. Explicitly scoped to availability impact — theft, fund loss and accounting drift are unaffected.
+- **`rules/realism-filter.md` → `uneconomic-grief` tag** (7th tag) — permissionless trigger + involuntary victim, but the attacker's unrecoverable cost ≥ quantified victim harm. Action is **cap at Low**, not reject: the underlying defect is usually real and belongs in the QA/Low bundle. Wired into the filter's decision tree (new step 2a), output format, and mechanical-enforcement list.
+- **`scripts/severity_router.py::apply_grief_economics`** — mechanical implementation of G1/G2/G3, applied in `derive_severity` **before** the proven-only cap so a `[FORK-PASS]` cannot rescue an uneconomic grief (the DRE finding had one). Text scan walks every string in the finding so the self-admission check works regardless of which phase/field the prose lands in.
+- **`prompts/phases/55_validator.md` → Gate 4a** — the Phase 5d counterpart, including a literal grep list for the self-admission scan, run where the full writeup prose actually exists.
+- **Required fields for DoS/grief findings** (`attacker_cost:`, `victim_harm:`, `operator_recoverable:`) documented in `agents/hacking-agents/shared-rules.md`, `rules/realism-filter.md` and `rules/severity-decision-tree.md`.
+
+### Changed
+- **`rules/severity-decision-tree.md`** — added the **b-qualifier**: a `b=YES` answer on *liveness/availability* is provisional until the grief-economics gates pass; compounding-accounting (b=2), invariant breaks (b=3) and accounting inconsistency (b=4) are exempt. The existing `✅ b=YES: liquidationCall() can be DoS'd by a tiny dust deposit` example was the DRE shape verbatim and is now marked provisional with the conditions under which it holds at Medium. `severity_check:` must show the gate verdicts for availability findings.
+- **`scripts/parse_findings.py`** — `REALISM_NORMALIZE` accepts `uneconomic-grief` / `uneconomic_grief` (without this the new tag was silently dropped at parse time).
+- **`scripts/dedup.py`** — `uneconomic-grief` ranks above bare `permissionless` in the canonical-selection priority: it is a *refinement* of permissionless, so the agent that actually did the cost/harm analysis wins the merge. Over-capping ships in the QA bundle; over-claiming gets rejected.
+
+### Known issue (pre-existing, not changed here)
+- `scripts/dedup.py` realism-priority comment says *"keep the most-restrictive non-permissionless tag"* but the `max()` over the priority map keeps the **least** restrictive (`permissionless: 5` wins). Left as-is — flipping it would change dedup semantics for every existing tag and could suppress real findings; flagged for a deliberate decision.
+
+## [1.27.0] - 2026-07-15
+
 ## [1.30.0] - 2026-07-26
 
 **Origin**: Request to let dewaxguard "learn from" a reproduced-exploit corpus (crypto.training / DeFiHackLabs — hundreds of real on-chain hacks with root-cause + Foundry PoC). The trap was to bolt on a stored bug-pattern database, which fights the skill's core principle ("methodology, not stored bug patterns" — the whole reason for the adversary gate + refuted index). Instead this routes the corpus through the learning loop that already exists (`/dewaxguard batch-import` → coverage check → `failure-modes/INDEX.md` class-level ledger → M-template proposal + `benchmarks/` seed), adding the deterministic backbone that the uniform PoC-corpus source makes possible. Learning stays at the class / evaluation level; the specific exploits never persist. Selfcheck is now 14 checks.
