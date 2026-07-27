@@ -42,10 +42,41 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
 SEVERITIES = ["Informational", "Low", "Medium", "High", "Critical"]
+
+# ── Grief / DoS economic gates (rules/severity-matrix.md) ────────────────────
+# Origin: DRE Sherlock audit (2026-07). A real wrong-list DoS defect shipped as
+# Medium and was rejected: the attacker's cost was unrecoverable dust while the
+# victims only suffered delay the TREASURY could manually clear. dewaxguard
+# already had the attacker-cost dimension in the L1 matrix, the Immunefi criteria
+# and M-16 — but never in the smart-contract severity path. These three gates
+# generalize it. All are MECHANICAL: they compare declared fields or detect the
+# finding's own admission, never re-judge the vulnerability.
+
+# The finding's own text conceding that a privileged-but-routine operation
+# restores service ("the TREASURY can still recover funds", "manual fills").
+RECOVERY_ADMISSION_RE = re.compile(
+    r"\b(treasury|admin|owner|operator|governance|keeper|multisig)\b[^.\n]{0,90}?"
+    r"\b(can|could|may|is able to)\b[^.\n]{0,90}?"
+    r"\b(recover|restore|unblock|resolve|re-?fill|fill around|skip|work[- ]around|manually)\b"
+    r"|\bmanual(?:ly)?\s+(?:treasury\s+)?(?:fill|fills|intervention|recovery|work[- ]around)"
+    r"|\bcan still (?:recover|be recovered|operate|be filled)",
+    re.IGNORECASE,
+)
+
+# Grief/DoS-shaped findings — the class where attacker cost must be weighed.
+GRIEF_CLASS_RE = re.compile(
+    r"\b(do[s5]|denial[- ]of[- ]service|grief(?:ing)?|liveness|block(?:s|ed|ing)?\s+"
+    r"(?:the\s+)?(?:queue|batch|withdrawals?)|bricks?|stuck|permanently\s+block)\b",
+    re.IGNORECASE,
+)
+
+TRUTHY = (True, "true", "True", "TRUE", "yes", "YES", 1, "1")
+FALSEY = (False, "false", "False", "FALSE", "no", "NO", 0, "0")
 
 # Matrix[impact][likelihood] → severity
 MATRIX: dict[str, dict[str, str]] = {
@@ -89,6 +120,81 @@ def cap(s: str, max_tier: str) -> str:
     if i < 0:
         return s
     return SEVERITIES[min(i, mi)]
+
+
+def _finding_text(finding: dict) -> str:
+    """All prose the finding carries — used only for self-admission detection.
+
+    Scans every string value rather than a fixed field list: the prose that
+    concedes a recovery path lands in different fields depending on the emitting
+    phase (`description`/`proof`/`path` from breadth, `impact`/`recommendation`
+    from verify, free-form keys in `extra`). Axis fields like `impact: High` are
+    harmless noise here — they never match the recovery pattern.
+    """
+    parts: list[str] = []
+
+    def walk(v, depth: int = 0) -> None:
+        if depth > 3:
+            return
+        if isinstance(v, str):
+            parts.append(v)
+        elif isinstance(v, dict):
+            for x in v.values():
+                walk(x, depth + 1)
+        elif isinstance(v, (list, tuple)):
+            for x in v:
+                walk(x, depth + 1)
+
+    walk(finding)
+    return "\n".join(parts)
+
+
+def apply_grief_economics(severity: str, finding: dict) -> tuple[str, list[str]]:
+    """Cap grief/DoS severity when the attacker pays more than the victim loses,
+    when a routine operator action restores service, or when neither side of that
+    trade has been quantified. See rules/severity-matrix.md → Grief economics.
+
+    Returns (new_severity, applied_modifiers). Never raises severity.
+    """
+    applied: list[str] = []
+    if sev_index(severity) <= sev_index("Low"):
+        return (severity, applied)  # already at/below the cap — nothing to do
+
+    extra = finding.get("extra") or {}
+    flags = {str(k).upper(): v for k, v in extra.items()}
+    text = _finding_text(finding)
+
+    # (a) Explicit uneconomic-grief tag from the realism filter.
+    if finding.get("realism_filter") == "uneconomic-grief":
+        applied.append(f"cap@Low: uneconomic-grief (was {severity})")
+        return (cap(severity, "Low"), applied)
+
+    # (b) Operator-recoverable — declared, or admitted by the finding's own text.
+    recoverable = flags.get("OPERATOR_RECOVERABLE")
+    if recoverable in TRUTHY:
+        applied.append(f"cap@Low: operator-recoverable (declared; was {severity})")
+        return (cap(severity, "Low"), applied)
+    if recoverable not in FALSEY and RECOVERY_ADMISSION_RE.search(text):
+        # The writeup concedes a recovery path but never answered the question.
+        # An author who disagrees sets `operator_recoverable: false` explicitly.
+        applied.append(
+            f"cap@Low: operator-recoverable admitted in the finding's own text and not "
+            f"rebutted via `operator_recoverable: false` (was {severity})")
+        return (cap(severity, "Low"), applied)
+
+    # (c) Grief/DoS above Low must quantify BOTH sides of the trade.
+    is_grief = bool(GRIEF_CLASS_RE.search(text))
+    if is_grief:
+        has_cost = str(flags.get("ATTACKER_COST") or "").strip() != ""
+        has_harm = str(flags.get("VICTIM_HARM") or "").strip() != ""
+        if not (has_cost and has_harm):
+            missing = ", ".join(
+                n for n, ok in (("attacker_cost", has_cost), ("victim_harm", has_harm)) if not ok)
+            applied.append(
+                f"cap@Low: unquantified grief — missing {missing} (was {severity})")
+            return (cap(severity, "Low"), applied)
+
+    return (severity, applied)
 
 
 def apply_l1_evidence_floor(severity: str, evidence_tags: list[str]) -> tuple[str, list[str]]:
@@ -167,6 +273,15 @@ def derive_severity(finding: dict, proven_only: bool = False, l1_mode: bool = Fa
             pre = pre or severity
             applied.append(f"-1 tier: on-chain-only (was {severity})")
             severity = new
+
+    # Step 3b: grief/DoS economic gates (rules/severity-matrix.md).
+    # Runs before proven-only so a passing PoC cannot rescue an uneconomic grief:
+    # the DRE rejection had an end-to-end PoC and was still invalid.
+    new, grief_applied = apply_grief_economics(severity, finding)
+    if new != severity:
+        pre = pre or severity
+        applied.extend(grief_applied)
+        severity = new
 
     # Step 4: proven-only mode cap
     if proven_only:

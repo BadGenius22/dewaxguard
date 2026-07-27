@@ -84,6 +84,8 @@ REALISM_NORMALIZE = {
     "design-choice": "design-choice", "design_choice": "design-choice",
     "unreachable-precondition": "unreachable-precondition",
     "unreachable_precondition": "unreachable-precondition",
+    "uneconomic-grief": "uneconomic-grief", "uneconomic_grief": "uneconomic-grief",
+    "uneconomic grief": "uneconomic-grief",
 }
 
 

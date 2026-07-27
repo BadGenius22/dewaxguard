@@ -67,7 +67,7 @@ If any check fails, RE-READ the missing file. Do not proceed.
 ╚═════╝ ╚══════╝ ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝
 ```
 
-**v1.29.0** — Multi-language smart contract security auditor combining three methodologies:
+**v1.31.0** — Multi-language smart contract security auditor combining three methodologies:
 - **8 Specialized Hacking Agents** (breadth coverage) **+ 5 attacker-framing agents in thorough mode** (asymmetry, boundary, flow-gap, numerical-gap, trust-gap — v1.19.0)
 - **Nemesis Iterative Cross-Feed** (deep business logic + state inconsistency)
 - **Language-Specific Low-Level + Runtime Analysis** (what other auditors miss)

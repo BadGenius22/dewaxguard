@@ -192,6 +192,24 @@ for s in scripts/detect_language.sh scripts/run_benchmarks.sh; do
 done
 [ $nc_fail -eq 0 ] && ok "all v1.22.0 components present and executable"
 
+echo "== 14. Exploit-corpus importer (present, runs, anti-anchoring) =="
+ie_fail=0
+if [ -x scripts/import_exploits.py ] && [ -f scripts/fixtures/exploit-corpus.sample.json ]; then
+  ie_out=$(python3 scripts/import_exploits.py --corpus scripts/fixtures/exploit-corpus.sample.json 2>&1)
+  ie_rc=$?
+  [ $ie_rc -eq 0 ] || { fail "import_exploits.py exited $ie_rc on the sample corpus"; ie_fail=1; }
+  # Anti-anchoring: the sample carries identifying fields (name/loss/date/chain);
+  # NONE may appear in the tool's persisted output — only class-level signals do.
+  if printf '%s' "$ie_out" | grep -qiE 'ExampleSwap|ExampleLend|1000000|500000|2026-01|arbitrum'; then
+    fail "import_exploits.py leaked an identifying field into its output (anti-anchoring violation)"
+    ie_fail=1
+  fi
+else
+  fail "scripts/import_exploits.py missing/not-executable or its sample fixture is absent"
+  ie_fail=1
+fi
+[ $ie_fail -eq 0 ] && ok "importer runs on the sample corpus and leaks no identifying data"
+
 echo
 if [ $FAIL -eq 0 ]; then
   echo "SELFCHECK PASS — skill is internally consistent"

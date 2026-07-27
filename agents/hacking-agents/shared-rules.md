@@ -75,7 +75,11 @@ fix: one-sentence suggestion
 severity: Critical|High|Medium|Low|Informational   # only if you can reasonably classify; otherwise leave for inventory
 impact: High|Medium|Low|Informational              # axis input for severity matrix
 likelihood: High|Medium|Low                        # axis input for severity matrix
-realism_filter: permissionless|semi-trusted-role|admin-trust|design-choice|unreachable-precondition
+realism_filter: permissionless|semi-trusted-role|admin-trust|design-choice|unreachable-precondition|uneconomic-grief
+# DoS / griefing findings MUST also declare these three (else capped at Low — see rules/severity-matrix.md → Grief economics):
+attacker_cost: <concrete figure + RECOVERABLE|UNRECOVERABLE>
+victim_harm: <concrete figure, or "delay only, no funds lost, recoverable via X">
+operator_recoverable: true|false                   # can a routine admin/treasury action restore service?
 location: <relative/path/File.ext>:L<start>-L<end> # explicit machine-readable location
 evidence: [CODE, BOUNDARY, TRACE, POC-PASS, ...]   # comma-separated tag list
 
