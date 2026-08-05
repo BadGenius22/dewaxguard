@@ -22,9 +22,26 @@ Every finding MUST be tagged with one of:
 
 ---
 
+## Gate R-0: Re-derive with all actors honest (MANDATORY, runs BEFORE the tree)
+
+Before tagging any finding `design-choice`, `admin-trust`, `semi-trusted-role`, or `unreachable-precondition`, restate it with **every actor behaving honestly and every configuration at ordinary in-envelope values**. Then ask: *does a loss still occur?*
+
+| Answer | Action |
+|--------|--------|
+| **YES** | The finding is `permissionless`. The actor dependency came from **your framing**, not from the code. Rewrite the finding around the honest-actor path, then re-walk the tree from step 0. |
+| **NO** | The actor dependency is real. Continue to the tree. |
+
+An actor-gated framing of a bug that *also* has an honest-actor form is a strictly weaker version of the same finding, and tagging it kills the valid one silently. This gate is mandatory because every non-`permissionless` outcome below is terminal — a mis-framed finding rejected at step 1 or parked at step 3 is never revisited, and nothing downstream will recover it.
+
+Watch for the two framings that most often manufacture a false dependency:
+- **"Depends on how tightly the admin configured the guard/cap/bound."** Re-ask at the *center* of the legal config range, not its edges. If the bug is present at ordinary settings, the admin is not a precondition.
+- **"Only manifests when the inputs sit at opposite extremes."** Extreme-input framings import whoever controls those extremes as an actor. Re-ask with all inputs mid-range and honest.
+
+---
+
 ## Decision Tree
 
-For each candidate finding, walk in order:
+For each candidate finding, walk in order (Gate R-0 above must already have passed):
 
 ```
 0. Does the exploit chain REQUIRE a compromised / leaked / phished private key

@@ -70,7 +70,11 @@ case "$LANG_TARGET" in
         STATE_PAT='paused|frozen|initialized|isPaused|setPaused|whenNotPaused|emergencyShutdown|inEmergency|deprecated|blacklist|whitelist|killed'
         EXTERNAL_PAT='\.call\s*\(|\.delegatecall\s*\(|\.staticcall\s*\(|\.transfer\s*\(|\.send\s*\(|interface\s+\w+|IERC20|IUniswap|IChainlink'
         UNSAFE_PAT='assembly\s*\{|unchecked\s*\{|delegatecall|extcodesize|extcodecopy|selfdestruct|suicide|create2'
-        MATH_PAT='\.mul\s*\(|\.div\s*\(|\.add\s*\(|\.sub\s*\(|FixedPointMath|fixedDiv|fixedMul|wadDiv|wadMul|rayDiv|rayMul|/\s*\d|\*\s*1e[0-9]+'
+        # NOTE: mulDiv/FullMath/PRBMath are the dominant precision-critical primitives in
+        # modern Solidity. `\.mul\s*\(` does NOT match `Math.mulDiv(` — omitting them kept
+        # every OZ/Uniswap fixed-point division out of the map. `.add(`/`.sub(` removed:
+        # SafeMath is dead on >=0.8 and they only matched EnumerableSet noise.
+        MATH_PAT='mulDiv|mulDivDown|mulDivUp|mulWad|divWad|FullMath|FixedPointMath|PRBMath|UD60x18|SD59x18|Math\.\w+\s*\(|\.mul\s*\(|\.div\s*\(|fixedDiv|fixedMul|wadDiv|wadMul|rayDiv|rayMul|/\s*\d|\*\s*1e[0-9]+'
         ORACLE_PAT='latestAnswer|latestRoundData|getPrice|priceFeed|oracle|getReservesNative|TWAP|cumulativePrice|swapAmount'
         FLASH_PAT='flashLoan|flashLoanSimple|onFlashLoan|executeOperation|flashFee|maxFlashLoan|flashSwap|uniswapV2Call|uniswapV3FlashCallback'
         PUBFN_PAT='function\s+\w+'
@@ -94,7 +98,7 @@ case "$LANG_TARGET" in
         STATE_PAT='is_paused|set_paused|is_frozen|set_frozen|is_initialized|set_initialized|PROTOCOL_LOCKED|blacklist|whitelist|deprecated|Paused|Frozen|Active'
         EXTERNAL_PAT='try_invoke_contract|invoke_contract|authorize_as_current_contract|env\.invoke|env\.try_invoke'
         UNSAFE_PAT='unsafe\s*\{|unsafe\s+fn|mem::transmute\b|\bptr::|\bfrom_raw\b|\bfrom_raw_parts\b|ManuallyDrop\b|uninitialized\(\)|\.set_len\(|#\[repr\(C\)\]'
-        MATH_PAT='wad_mul|wad_div|ray_mul|ray_div|percent_mul|percent_mul_up|\.checked_div|\.checked_mul|\.div\(|U256::'
+        MATH_PAT='wad_mul|wad_div|ray_mul|ray_div|percent_mul|percent_mul_up|mul_div|\.checked_div|\.checked_mul|\.fixed_div|\.fixed_mul|\.div\(|U256::'
         ORACLE_PAT='get_price|update_price|price_oracle|reflector|aggregator|circuit_breaker|fallback_price'
         FLASH_PAT='flash_loan|flash_loan_simple|flash_liquidation|flash_callback|prepare_liquidation|execute_liquidation'
         PUBFN_PAT='pub fn |#\[contractimpl\]'
@@ -191,6 +195,13 @@ find_src() {
     echo "Every use of fractional scaling or explicit division. Inspect for"
     echo "WAD/RAY precision mismatches, division-before-multiplication, and"
     echo "rounding-direction asymmetry."
+    echo
+    echo "MANDATORY per row whose quotient is RETURNED or STORED (not just consumed inline):"
+    echo "state the quotient's magnitude range over the REALISTIC input domain, and whether"
+    echo "any realistic regime puts it under ~1e3 in its own fixed-point units. Below that,"
+    echo "one ULP is >0.1% of the value; at a quotient of 1-4 the floor destroys 25-100% of"
+    echo "it while leaving a nonzero value that passes every validity guard. A row left"
+    echo "un-ranged is NOT cleared. See math-precision agent, 'Quantize a live quotient'."
     echo
     echo '```'
     { find_src -print0 | xargs -0 grep -nE "$MATH_PAT" 2>/dev/null || true; } | head -500

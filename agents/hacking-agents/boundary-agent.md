@@ -69,6 +69,15 @@ For every `bytes` input or `abi.decode` (or `try_from_slice` / `BCS::from_bytes`
 4. `abi.encodePacked` followed by `abi.decode` — packed encoding is ambiguous; decode returns wrong field boundaries.
 5. Field-order mismatches across encode and decode sites in different files — silent reinterpretation of attacker bytes.
 
+## Step 6 — When the boundary is a COMPUTED value, stop and hand off
+
+Your corner-case questions are built for *inputs* you can hand-pick. When the thing crossing the boundary is a number the code **computes** — a quotient, ratio, scale factor, or derived price consumed by downstream logic — pushing the operands to their extremes is not sufficient and will actively mislead you:
+
+- Operand extremes produce a **divergence** story ("the two inputs sat at opposite guard edges"), which almost always carries a config or actor dependency and gets filtered out as admin-trust / design-choice.
+- The bug is usually a **quantization** story instead ("the computed value itself carries 25–100% error at ordinary, honest, mid-range inputs"), which is permissionless and survives every filter.
+
+If you cannot express the failure with all inputs honest and mid-range, you have not finished the analysis — hand the expression to the math-precision agent's *"Quantize a live quotient"* check (enumerate the result's magnitude range, find where its ULP is significant relative to itself) before writing it up. Never close a computed-value boundary as "guarded" on the strength of an operand-only sweep.
+
 ## Discipline
 
 For each finding, state THREE things:
