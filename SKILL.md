@@ -20,6 +20,9 @@ allowed-tools: Bash(*) Read(*) Write(*) Grep(*) Glob(*) Agent(*)
 5. `{PROJECT_ROOT}/context/KNOWN_ISSUES_INDEX_*.md` — third-party known-issue indices for dedup
 5a. `{PROJECT_ROOT}/*V12*-output.md` / `{PROJECT_ROOT}/*zellic*.md` — V12-style AI-auditor structured findings (if present, run `scripts/grep_v12.sh --count` to confirm presence, then `scripts/grep_v12.sh --invalid-only` to ingest the platform-knowledge corpus per **M-25**). MANDATORY when these files exist — V12 entries are out-of-scope per most contest rules and the `### Invalid Reason` sections are the highest-leverage platform-semantics reading.
 
+**Step 1.5 — Cross-tool audit method** (v1.33.0, always):
+5b. `~/.claude/audit-method.md` — the three tool-independent rules that bind every audit session: **A-1** a quiet pass is not coverage, **A-2** no uncited mechanism claim crosses a boundary, **A-3** a test that cannot fail proves nothing. Normally auto-loaded via `~/.claude/CLAUDE.md`; read it explicitly when running in driver mode or any subprocess where that import may not resolve. Every rule below implements one of these three.
+
 **Step 2 — Cross-audit context** (skip if file does not exist; load from `~/.claude/skills/dewaxguard/` or equivalent):
 6. `LEARNED_INDEX.md` — one-line summary per past audit; provides historical recall + RC distribution
 7. `methodology/INDEX.md` — registry of M-NN templates with applicability metadata
@@ -39,6 +42,7 @@ Skipping preflight makes all downstream breadth/depth output suspect — refuted
 ### Self-check before declaring preflight complete
 
 Before proceeding to audit work, verify:
+- [ ] `~/.claude/audit-method.md` rules A-1/A-2/A-3 are in context (auto-loaded or read explicitly)
 - [ ] DEEP_DIVE_PLAN.md was read (or absence noted)
 - [ ] MANIFEST.md was read (or absence noted — first session of new audit)
 - [ ] LEARNED_INDEX.md was read (or absence noted)
@@ -67,12 +71,13 @@ If any check fails, RE-READ the missing file. Do not proceed.
 ╚═════╝ ╚══════╝ ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝
 ```
 
-**v1.32.0** — Multi-language smart contract security auditor combining three methodologies:
-- **8 Specialized Hacking Agents** (breadth coverage) **+ 5 attacker-framing agents in thorough mode** (asymmetry, boundary, flow-gap, numerical-gap, trust-gap — v1.19.0)
+**v1.33.0** — Multi-language smart contract security auditor combining three methodologies:
+- **8 Specialized Hacking Agents** (breadth) **+ 5 attacker-framing agents in thorough mode** (asymmetry, boundary, flow-gap, numerical-gap, trust-gap — v1.19.0)
 - **Nemesis Iterative Cross-Feed** (deep business logic + state inconsistency)
 - **Language-Specific Low-Level + Runtime Analysis** (what other auditors miss)
-- **Mainnet Fork PoC Verification** (mechanical proof on real contracts)
+- **Mainnet Fork PoC Verification** (mechanical proof on real contracts, integrity-gated — v1.33.0)
 - **Platform-Specific Bug Validation** (pre-submission quality gate)
+- **Negative-Space Spine** (v1.33.0) — test-gap map, findings-blind protocol model, blind re-run variance. The pipeline is good at producing findings and bad at knowing what it missed; these three phases build the complement and the report must publish it.
 
 > **Usage**: `/dewaxguard [light|core|thorough] [path] [options]`
 > **Driver mode (v1.13+, opt-in)**: `python3 ~/.claude/skills/dewaxguard/scripts/dewaxguard_driver.py --mode core --src ./contracts [--audit-id X] [--resume]` — replaces the prompt-only LLM orchestrator with a deterministic Python driver that spawns `claude -p` subprocesses per phase, runs content+coverage gates between phases, and checkpoints for crash resume. Legacy prompt-only mode remains the default.
@@ -87,9 +92,11 @@ If any check fails, RE-READ the missing file. Do not proceed.
 
 | Mode | Agents | Pipeline |
 |------|--------|----------|
-| **Light** | ~15 (all Sonnet) | Recon → Breadth(4) → Depth(4) → Chain → Verify → Report |
-| **Core** | ~30-40 | Recon → Breadth(8) → Inventory → Depth(6) → Chain → Fork PoC → Validate → Report |
-| **Thorough** | ~55-90 | Recon → Breadth(13) → Inventory → Semantic → Depth(6) → Nemesis → Chain → Fork PoC → Validate → Report |
+| **Light** | ~16 (all Sonnet) | Recon → TestGap → Model → Breadth(4) → Depth(4) → Chain → Verify → Report |
+| **Core** | ~34-44 | Recon → TestGap → Model → Breadth(8) → **Re-run(3)** → Inventory → Depth(6) → Chain → Fork PoC → Validate → Report |
+| **Thorough** | ~59-94 | Recon → TestGap → Model → Breadth(13) → **Re-run(3)** → Inventory → Semantic → Depth(6) → Nemesis → Chain → Fork PoC → Validate → Report |
+
+> **v1.33.0 agent delta**: +1 findings-blind protocol model (all modes) and +3 blind re-run lenses (core/thorough). Light skips the re-run. The test-gap map is deterministic-first and costs no dedicated agent when the recon scripts can build it.
 
 > **Model tiering (driver mode)**: the driver runs each phase's subprocess at a tier chosen by role — high-token workers (verify PoC/trace) and fan-out dispatchers run cheap (`sonnet`/`haiku`), the finding sub-agents keep their tier (`opus` in core/thorough), and the validator decision gate runs at the commander tier. Pass `--commander-model fable` to run that gate on Fable 5 (the ClaudeDevs "premium advisor at decision points" pattern). See `rules/model-tiering.md`. This does not change the per-agent finding models above.
 
@@ -99,8 +106,11 @@ If any check fails, RE-READ the missing file. Do not proceed.
 
 ```
 Phase 1:    Recon (4 agents — build, docs, patterns, surface)
+Phase 1.2:  Test-Gap Map (where the TEAM did not look — rules/negative-space.md)
 Phase 2:    Instantiation (orchestrator — template binding)
+Phase 2.5:  Findings-Blind Protocol Model (1 agent, forbidden from seeing any finding)
 Phase 3:    Breadth (8 specialized hacking agents; thorough adds 5 attacker-framing agents → 13)
+Phase 3.5:  Blind Re-Run (3 lenses, no exclusion list — measures run-to-run stability)
 Phase 4a:   Inventory + Dedup
 Phase 4a.5: Semantic Invariants (Core/Thorough)
 Phase 4b:   Depth (6 agents: token-flow, state-trace, edge-case, external, lowlevel, runtime)
@@ -114,8 +124,16 @@ Phase 5d:   Bug Validator (platform-specific scoring, uses RAG score)
 Phase 5d.1: Submission Hardening (fix deductions > 5pts, re-score until >= 85)
 Phase 5d.2: Claim-Ledger Verification (M-32 — final candidates >= 70: per-claim source verification, verification-debt gate, before report)
 Phase 5e:   Self-Calibration (automatic — agent FP rates, confidence accuracy)
-Phase 6:    Report (submission-ready)
+Phase 6:    Report (submission-ready) + MANDATORY "What this audit did not cover" section
 ```
+
+> **The negative-space spine (v1.33.0)**: Phases 1.2, 2.5 and 3.5 exist to answer a question the rest
+> of the pipeline structurally cannot. Every stage after breadth is conditioned on the breadth finding
+> list, so a region no breadth agent entered is invisible to inventory, depth, chain and verification
+> alike — and the run reports silence there as if it were a clean result. These three phases build the
+> complement (unexamined / unmodelled / unstable) into `{SCRATCHPAD}/negative-space.md`, which the
+> Phase 6 report must publish. Full spec: `rules/negative-space.md`. Binds global rule A-1 in
+> `~/.claude/audit-method.md`: a quiet pass is not coverage.
 
 ---
 
@@ -181,6 +199,28 @@ Output: 16+ scratchpad artifacts (Phase 1.0 maps + Phase 1.1 agent outputs).
 
 ---
 
+## PHASE 1.2: TEST-GAP MAP (all modes)
+
+> Full spec: `rules/negative-space.md` → Phase 1.2. Rationale: the gaps in a test suite are usually the gaps in the team's thinking. An entry point nobody wrote an adversarial test for is one the team believes is obviously correct.
+
+Enumerate the repo's tests, map every in-scope entry point and every extracted invariant to its test class (`UNTESTED` / `HAPPY-ONLY` / `ADVERSARIAL` / `FUZZED`), and write `{SCRATCHPAD}/test-gap-map.md`.
+
+**HARD consumption rule**: Phase 4b depth agents receive the `UNTESTED` + `HAPPY-ONLY` sets as a priority list. When depth budget is contested, an `UNTESTED` entry point outranks a finding-derived depth target of equal severity, and the weighting decision is logged. `FUZZED` is not a safety signal — record which invariants the harness actually asserts, since it proves nothing about the ones it does not.
+
+---
+
+## PHASE 2.5: FINDINGS-BLIND PROTOCOL MODEL (core/thorough; sonnet in light)
+
+> Full spec: `rules/negative-space.md` → Phase 2.5.
+
+One agent builds the model of what the protocol is *trying* to be, and is **forbidden** from reading any findings file, `analysis_*.md`, hypothesis list, prior-audit report, known-issue index, `refuted/INDEX.md`, or `patterns/`. That restriction is the point: the agent must describe the intended system, not hunt inside it. Every other agent in this pipeline reads code with a finding list already in context, which is why this pass has to exist separately.
+
+It emits `{SCRATCHPAD}/protocol-model.md`: protocol intent in the docs' own words, an **invariant ledger** (each with the `file:line` enforcing it or `NOT ENFORCED IN CODE`), a **value-outflow map** organised by protocol mechanic with the actor gate reaching each site, and any model-vs-code divergence it spots (which enters the finding stream as a normal LEAD).
+
+**Diff at Phase 4c**: invariants and outflow rows that no finding references are the unmodelled region and append to `negative-space.md`. A row that is both `NOT ENFORCED IN CODE` and permissionlessly reachable is promoted to a depth target regardless of remaining budget.
+
+---
+
 ## PHASE 3: BREADTH — 8 CORE HACKING AGENTS (+5 ATTACKER-FRAMING IN THOROUGH)
 
 Spawn the core 8 in parallel (light spawns the first 4). Each reads the full source + their agent instructions.
@@ -211,6 +251,18 @@ Spawn these 5 ADDITIONALLY in `thorough` mode (skip in `light`/`core`). They hun
 > **Roster note**: solidity-auditor v3 shipped 12 agents by RETIRING vector-scan. dewaxguard KEEPS vector-scan (its recon `blackhat-maps`, `parse_findings.py`, self-calibration, and M-18/M-21 depend on it), so the thorough roster is 8 + 5 = **13**.
 
 Each agent uses `agents/hacking-agents/shared-rules.md` for output format, and may consult `references/senior-auditor-sop.md` for the Feynman / Socratic / Inversion mental tools (light-touch, not orchestrator-enforced).
+
+---
+
+## PHASE 3.5: BLIND RE-RUN (core/thorough)
+
+> Full spec: `rules/negative-space.md` → Phase 3.5.
+
+These agents are not deterministic: the same lens over the same code yields two different sets. A single pass therefore samples the space, it does not sweep it. Re-run exactly three lenses on the identical scope — `invariant-agent`, `economic-security-agent`, `first-principles-agent` — with **no exclusion list and no pass-1 finding list in context**. `vector-scan-agent` is deliberately excluded: known attack patterns are the commoditizing half and the most stable across runs, so re-running it buys the least information per token.
+
+This is NOT the exclusion-list rescan pattern. That pattern measures novelty and by construction cannot detect variance; this one measures stability.
+
+Reuse `scripts/parse_findings.py` + `scripts/dedup.py` to compute `stability = |P1 ∩ P2| / |P1 ∪ P2|` on group_keys, per lens. Below 0.3 the lens is effectively random on this codebase and a third run is worth more than any depth agent. Findings unique to pass 2 enter the inventory normally, and their count is recorded — it is the direct measurement of what a single pass would have missed.
 
 ---
 
@@ -273,6 +325,8 @@ NEW 2 (language + runtime specific):
 - **depth-lowlevel**: Type casts, unsafe code, serialization, memory safety → `prompts/{LANGUAGE}/phase4b-lowlevel-templates.md`
 - **depth-runtime**: VM exploits, tx composition, resource exhaustion, account aliasing → `prompts/{LANGUAGE}/phase4b-runtime-templates.md`
 
+> **Depth targets are not only findings (v1.33.0)**: every depth agent's input list carries `{SCRATCHPAD}/test-gap-map.md` alongside `findings_routed.json`. The `UNTESTED` and `HAPPY-ONLY` entry points are depth targets in their own right — they are where the team's own thinking has a hole, and no finding needs to exist there first. On contested budget, an `UNTESTED` entry point outranks a finding-derived target of equal severity. Log the weighting decision. See `rules/negative-space.md`.
+
 ---
 
 ## PHASE 4b.1: NEMESIS CROSS-FEED (Thorough only)
@@ -296,6 +350,8 @@ See: `agents/nemesis/feynman.md` and `agents/nemesis/state-inconsistency.md`
 ---
 
 ## PHASE 5c: MAINNET FORK PoC (Critical/High/Medium)
+
+> **PoC integrity gate (HARD, v1.33.0)**: writing a PoC is cheap now; reading it is the work. Every PoC in Phase 5b and 5c must carry the four receipts from `rules/fork-poc-execution.md` §7 — **mutation check** (revert the bug, the test MUST fail), **positive control** (a known-good operation succeeds through the same harness, mandatory before any negative result stands), **real-path audit** (no mock on the value flow being proven), **assertion audit** (a balance delta at a named address, not a revert or a success flag). Missing or failing any of the four drops the evidence tag to `[CODE-TRACE]`; `[FORK-PASS]` and `[POC-PASS]` both require all four. A test that cannot fail proves nothing.
 
 > **Plain-English requirement**: every PoC file written in this phase MUST follow `rules/plain-english-style.md`. The orchestrator passes that file to every PoC-writer agent's input list. Variable names use roles (`attacker`, `victim`, `owner`), comments explain the attack story in plain English (use the cheatcode-comment dictionary), numbers are round unless the exact number is the bug.
 
@@ -443,9 +499,16 @@ For each finding:
 - Clean sequential IDs (C-01, H-01, M-01, L-01)
 - Plain-English Description in the four-sentence shape (what is wrong → why it matters → who triggers it → what the user sees)
 - Impact stated in dollars, percent, or a clear user-action verb
-- PoC (fork test preferred), with comments per the cheatcode-comment dictionary
+- Quantification ledger (`victim` / `loss` / `attacker_cost` / `recoverable`) for every finding above Low — see `rules/severity-decision-tree.md` → Quantification gate
+- PoC (fork test preferred), with comments per the cheatcode-comment dictionary and the four §7 integrity receipts
 - Recommended fix as: one-sentence fix → code diff → one-sentence "what this prevents"
 - Validation score
+
+### MANDATORY section: "What this audit did not cover"
+
+Sourced from `{SCRATCHPAD}/negative-space.md`. It states, in plain English: entry points and invariants with no team test and whether depth reached them; invariants and value-outflow sites from the protocol model that no finding touched; per-lens stability numbers from Phase 3.5 plus the count of findings only one pass found; and anything examined but left unresolved either way, with the reason.
+
+**Prohibited phrasing in every report** (global rule A-1): "full coverage", "all paths analyzed", "the contract is clean", "no issues found in X", and the word *coverage* applied to a throughput count. A report with no negative-space section is incomplete, not clean. The correct phrasing for a quiet area is: *"this run surfaced nothing in X; at lens stability S that is weak/no evidence of absence."*
 
 ---
 
@@ -520,10 +583,13 @@ dewaxguard/
 │   ├── phases/                       # Driver-mode phase prompts (00_preflight .. 60_report)
 │   └── {evm,solana,stellar,aptos,sui,cpp}/    # phase4b-lowlevel + phase4b-runtime templates
 ├── rules/                            # finding-output-format, chain-analysis-prompt, report-template,
-│                                     # fork-poc-execution, severity-matrix, l1-severity-matrix,
-│                                     # docs-intent-map, severity-decision-tree, auth-critical-files,
-│                                     # agent-tool-budgets, realism-filter, agent-failure-recovery,
-│                                     # plain-english-style, rag-validation-sweep, cross-class-preflight-firewall
+│                                     # fork-poc-execution (+ §7 PoC integrity gate, v1.33.0),
+│                                     # severity-matrix, l1-severity-matrix, docs-intent-map,
+│                                     # severity-decision-tree (+ quantification gate, v1.33.0),
+│                                     # negative-space (v1.33.0 — phases 1.2 / 2.5 / 3.5 + report section),
+│                                     # auth-critical-files, agent-tool-budgets, realism-filter,
+│                                     # agent-failure-recovery, plain-english-style,
+│                                     # rag-validation-sweep, cross-class-preflight-firewall
 ├── scripts/
 │   ├── build_recon_maps.sh           # Phase 1.0 recon maps incl. M-29/M-30 detector flags
 │   ├── detect_language.sh            # Phase 1.0 Step 0: deterministic language + quirks resolution (v1.22.0)

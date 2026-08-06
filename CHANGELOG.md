@@ -1,5 +1,38 @@
 # DewaxGuard Changelog
 
+## [1.33.0] - 2026-08-06
+
+**Origin**: 0xSimao, "How I use AI in smart contract audits (2026)", 4 August 2026 (user-supplied article). Not a post-mortem — no ground truth was compared. This release encodes three claims from that article that the pipeline structurally violated, each confirmed absent by grep before the edit rather than assumed.
+
+The article's claims, checked against this skill:
+
+| Claim | Status here before v1.33.0 |
+|-------|---------------------------|
+| Severity is an economic judgment models get wrong in both directions | **Mostly covered.** `realism-filter.md` Gate R-0 and `severity-decision-tree.md` grief gates G1/G2/G3 already force articulated mechanisms. Gap: G3's quantification demand fired for *availability findings only*. |
+| A clean pass is not coverage; the same tool run twice gives two different sets | **Violated.** Nothing measured run-to-run variance, and no report section stated what was not examined. |
+| A PoC that exercises a mock proves the mock; check the assertion would fail if you reverted the bug | **Absent.** Zero matches for mutation / positive-control / revert-the-bug across the whole skill. |
+| Do not ask a model how something works and accept the answer | **Partially covered.** `verified:` at finding level and M-32 at the final gate; nothing at the agent handoffs in between, where every hop launders a guess into a premise. |
+| The gaps in a test suite are the gaps in their thinking | **Absent.** Zero matches for test-suite gap analysis. |
+
+### Added
+- **`rules/negative-space.md`** (new) — the complement the pipeline could not compute. Every stage after breadth is conditioned on the breadth finding list, so a region no breadth agent entered is invisible to inventory, depth, chain and verification alike, and silence there gets reported as a clean result. Three sources, each finding a different blind region and none substituting for the others:
+  - **Phase 1.2 Test-Gap Map** — classifies every in-scope entry point and extracted invariant as `UNTESTED` / `HAPPY-ONLY` / `ADVERSARIAL` / `FUZZED`. The `UNTESTED` + `HAPPY-ONLY` sets become depth targets in their own right, outranking a finding-derived target of equal severity on contested budget. `FUZZED` is explicitly not a safety signal.
+  - **Phase 2.5 Findings-Blind Protocol Model** — one agent, forbidden from reading any findings file, `analysis_*.md`, hypothesis list, prior-audit report, known-issue index, `refuted/INDEX.md` or `patterns/`. Emits protocol intent, an invariant ledger (each `file:line`-enforced or `NOT ENFORCED IN CODE`), and a value-outflow map organised by protocol mechanic with the actor gate per site. At Phase 4c, invariants and outflow rows no finding references are the unmodelled region; a `NOT ENFORCED` + permissionlessly-reachable row is promoted to depth regardless of budget.
+  - **Phase 3.5 Blind Re-Run** — re-runs `invariant-agent`, `economic-security-agent`, `first-principles-agent` with no exclusion list and no pass-1 findings in context, and computes `stability = |P1 ∩ P2| / |P1 ∪ P2|` on group_keys via the existing `parse_findings.py` + `dedup.py`. `vector-scan-agent` is deliberately excluded — known patterns are the commoditizing half and the most stable across runs, so re-running it buys the least per token. Distinct from the exclusion-list rescan, which measures novelty and by construction cannot detect variance.
+  - **Phase 6 mandatory report section** — "What this audit did not cover". Bans "full coverage", "all paths analyzed", "the contract is clean", and *coverage* used for a throughput count.
+- **`rules/fork-poc-execution.md` §7 — PoC Integrity Gate (HARD)**: four receipts required for any `[FORK-PASS]` / `[POC-PASS]`. **7a mutation check** (revert the bug, the test MUST fail — if it still passes the assertion is not measuring the bug and the result is void). **7b positive control** (mandatory before any negative result stands; a broken harness and a hardened target both produce FAIL, and the surfpool BPFLoader2 token-program substitution is the worked example). **7c real-path audit** (no mock on the value flow being proven). **7d assertion audit** (a balance delta at a named address, not a revert or success flag). Failing or skipping any drops the tag to `[CODE-TRACE]`.
+- **`rules/severity-decision-tree.md` — Quantification gate**: extends the demand for a measured number from the availability branch to **every** branch. a=YES needs `loss` measured as a delta from a zero-capital start (or capital stated and marked RECOVERABLE/UNRECOVERABLE); b=2 needs a drift *rate* and horizon ("it compounds" is the mechanism, not the impact); b=3 needs the invariant's source; b=4 needs magnitude and boundedness. Four mandatory fields: `victim` / `loss` / `attacker_cost` / `recoverable`. `loss: UNQUANTIFIED — {reason}` is an accepted value that caps at Low — never invent a figure. Escalation is symmetric: a measured loss materially above the claimed tier escalates.
+- **`rules/finding-output-format.md` — Handoff citation discipline**: any claim about what the code does, written into a scratchpad artifact another agent will read, carries `file:line`. Consuming agents treat uncited upstream claims as unverified and must either cite them or carry `depends_on_unverified:` forward, which blocks any tier above Low until discharged by a citation (not by a second agent agreeing). Binds the orchestrator's own prior turns.
+- **`~/.claude/audit-method.md`** (new, global, imported from `~/.claude/CLAUDE.md`) — rules **A-1** (a quiet pass is not coverage), **A-2** (no uncited mechanism claim), **A-3** (a test that cannot fail proves nothing). Tool-independent by design: they describe ways model output can look like work without being work, so they bind dewaxguard, dewaxoffense, dewaxdlt, plamen and ad-hoc reads alike. Added to preflight as Step 1.5.
+
+### Changed
+- **`SKILL.md`** — pipeline overview gains phases 1.2 / 2.5 / 3.5 and the negative-space spine note; modes table updated (+1 agent all modes, +3 core/thorough; light skips the re-run); Phase 4b depth agents now receive `test-gap-map.md` alongside `findings_routed.json`; Phase 5c leads with the integrity gate; Phase 6 gains the mandatory negative-space section and the quantification ledger per finding.
+- **Evidence tag table** (`rules/fork-poc-execution.md`) — `[FORK-PASS]` and `[POC-PASS]` now require the §7 all-pass; `[FORK-FAIL]` requires a passing positive control before it supports FALSE_POSITIVE; `[CODE-TRACE]` is named as the ceiling for any PoC that fails or skips §7.
+
+### Deliberately not changed
+- **Coverage-claim language in `~/.plamen/rules/`** (`phase3b` "skip iteration 2 unconditionally", `phase5` "Verification coverage: N/N") is the same A-1 violation but lives in globally-loaded files outside this skill. Left alone by scope decision; rule A-1 in `audit-method.md` overrides it wherever both are in context.
+- **No RC classification or recall metric** for this release — there is no ground truth behind it. It does not get a `MEMORY.md` metrics row.
+
 ## [1.32.0] - 2026-08-05
 
 **Origin**: Post-mortem of Sherlock 1279 (oracle-priced bin AMM). One missed valid Medium — a floored cross-price quotient in a two-feed synthetic oracle path — traced to **four compounding layers**, seeded by a recon regex gap. RC-METHOD → `FM-10`. A second judged result (a submitted JIT fee-capture finding ruled invalid) classified RC-AGENT and shipped no rule, per the presumption gate.

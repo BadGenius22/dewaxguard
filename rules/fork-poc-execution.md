@@ -162,16 +162,75 @@ After 2+ variant failures → `[FORK-FAIL]` is justified.
 - **A failing "should-be-blocked" test is often a test artifact, not a live bug.** A `vm.expectRevert` placed one line too early catches a *harmless setup call* (approve, deal, warp) — the revert fires there and the actual exploit path never runs, yet the test "passes" as if the guard were the finding. Before escalating any expect-revert PoC: trace with `-vvvv` and confirm the revert originates from the exploit call, not from setup. Prefer **arm-then-observe** — perform the setup unguarded, then wrap ONLY the exploit call in `try/catch` (or a raw `.call`) and assert on the observed outcome. (Twyne L-04 was a misplaced `expectRevert`, not a bug.)
 - **Test BOTH economic regimes when a clamp/guard can neutralize the attack.** Over-collateralized or price-clamped systems (perps vaults, GMX-style share pricing) can make a share/price-manipulation attack a no-op in the *current* regime while it is live in another. Use `vm.store` to place the protocol in each regime (clamped vs unclamped, over- vs under-collateralized) and run the PoC in both — a `[FORK-FAIL]` in one regime is not a `[FORK-FAIL]` overall.
 
+### 7. PoC Integrity Gate (HARD — a PoC is not evidence until all four pass)
+
+> Global rule A-3 (`~/.claude/audit-method.md`): a test that cannot fail proves nothing. Writing the
+> PoC is cheap; reading it is the work. All four checks below are mandatory and their results are
+> recorded in the PoC output block. A PoC that skips a check is untagged, not `[FORK-PASS]`.
+
+**7a — Mutation check (the one that catches a test proving nothing).**
+Revert the bug and re-run the same test. The test MUST fail.
+
+```solidity
+// The finding says `withdraw` sends ETH before zeroing the balance.
+// Mutation: patch the local copy to zero the balance FIRST, re-run testExploit.
+// Required result: testExploit FAILS. If it still passes, the assertion is not
+// measuring the bug — the result is void regardless of what it asserted.
+```
+
+How to mutate, in order of preference:
+1. Patch the source line in a local fork of the contract and re-deploy it in the test (`deployCode`
+   / `vm.etch` the fixed bytecode over the target address).
+2. If the target is a live proxy, `vm.etch` a corrected implementation and re-point the impl slot.
+3. If neither is possible, `vm.store` the state into the configuration the guard *would* have
+   produced, and re-run.
+
+Record: `mutation_check: PASS (test fails when guard restored)` or `FAIL (test still passes — void)`.
+
+**7b — Positive control (mandatory before trusting any negative result).**
+Before a `[FORK-FAIL]` or a FALSE_POSITIVE verdict stands, run a **known-good** operation through the
+identical harness and confirm it succeeds: an ordinary deposit, a legitimate swap, a real historical
+transaction replayed at the fork block. A broken harness and a hardened target both produce `FAIL`,
+and they are not distinguishable without this.
+
+This is not hypothetical. On Solana, surfpool substitutes a BPFLoader2 builtin for the SPL Token
+program, so every CPI/token PoC dies at `InvalidAccountOwner` before reaching program logic —
+including a known-good transaction. Without a positive control that reads as a refuted finding.
+
+Record: `positive_control: PASS (known-good deposit succeeded)` or `SKIPPED (result was positive)`.
+
+**7c — Real-path audit (mock vs real integration).**
+Enumerate every address / program ID / account the test touches. For each, state: real deployed
+identity (with the address) or explicitly labelled mock. Then assert the structural rule:
+
+> **No mock may sit on the value flow the PoC is proving.**
+
+A mock is acceptable for the attacker contract and for peripheral setup. A mocked oracle, a mocked
+token on the drain path, or a mocked callee whose return value is the thing under test proves only
+that the mock behaves as the model imagined it.
+
+Record: `real_path: {addr} REAL, {addr} REAL, {name} MOCK (attacker contract, off value path)`.
+
+**7d — Assertion audit.**
+The assertion measures a balance or accounting delta in the attacker's favour, at a named address.
+`assertTrue(success)`, "did not revert", and a bare `vm.expectRevert` are not assertions about harm.
+Cross-check against §6's expect-revert artifact before accepting any negative-shaped assertion.
+
+Record: `assertion: assertGt(token.balanceOf(attacker) after, before) — measured +$X`.
+
+**Downgrade rule**: any of 7a–7d failing or unrecorded drops the evidence tag to `[CODE-TRACE]` at
+best. `[FORK-PASS]` and `[POC-PASS]` both require all four.
+
 ---
 
 ## Evidence Tags
 
 | Tag | Meaning | Weight |
 |-----|---------|--------|
-| `[FORK-PASS]` | Exploit confirmed on mainnet fork | **Strongest** — mechanical proof |
-| `[POC-PASS]` | Unit test passes against model/library code | Strong |
-| `[CODE-TRACE]` | Manual trace with concrete values, no execution | Moderate |
-| `[FORK-FAIL]` | Fork test failed — attack doesn't work as described | Negative |
+| `[FORK-PASS]` | Exploit confirmed on mainnet fork, **integrity gate §7 all-pass** | **Strongest** — mechanical proof |
+| `[POC-PASS]` | Unit test passes against model/library code, **integrity gate §7 all-pass** | Strong |
+| `[CODE-TRACE]` | Manual trace with concrete values, no execution — also the ceiling for any PoC that fails or skips §7 | Moderate |
+| `[FORK-FAIL]` | Fork test failed — attack doesn't work as described. **Requires a passing §7b positive control** before it supports FALSE_POSITIVE | Negative |
 
 ---
 
@@ -206,6 +265,14 @@ pays out. The attacker repeats this until the vault is empty.
 {test output showing PASS}
 ```
 
+**Integrity Gate** (§7 — all four required for a PASS tag):
+```
+mutation_check:   PASS — testExploit fails when the balance is zeroed before the send
+positive_control: SKIPPED — result was positive
+real_path:        0xA0b8...eB48 REAL (USDC), 0x1f98...F984 REAL (target), Attacker.sol MOCK (off value path)
+assertion:        assertGt(usdc.balanceOf(attacker) 812_400e6 > 0) — measured +$812,400
+```
+
 **Evidence Tag**: [FORK-PASS]
 **Financial Impact** (in dollars or percent): e.g. "Attacker drained 800 ETH (~$2.4M at fork block) — 100% of the vault."
 ```
@@ -219,3 +286,7 @@ pays out. The attacker repeats this until the vault is empty.
 - [ ] Variable names are role names (`attacker`, `victim`, `owner`) — no `addr1`/`addr2`.
 - [ ] Numbers are round unless an exact number is the bug.
 - [ ] The test asserts a number changed in the attacker's favour, not just that a function ran.
+- [ ] **§7a mutation check ran and the test FAILED with the bug reverted** — recorded in the output block.
+- [ ] **§7b positive control ran** if the result is negative (`[FORK-FAIL]` / FALSE_POSITIVE).
+- [ ] **§7c every address/program the test touches is labelled REAL or MOCK**, and no MOCK sits on the value flow being proven.
+- [ ] **§7d the assertion measures a balance/accounting delta at a named address**, not a revert or a success flag.

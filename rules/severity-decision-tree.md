@@ -36,6 +36,47 @@ Findings without `severity_check:` populated are auto-failed by the validator ha
 
 ---
 
+## Quantification gate (HARD — every tier, not just availability)
+
+> **Why this exists**: until v1.33.0 the only branch demanding a number was the availability/grief
+> path (G3). An a=YES theft finding could ship on the *assertion* that the attacker profits, with no
+> measured figure — which is precisely the signature of an unbountiable report per
+> `~/.claude/bounty-calibration.md` rule 6 ("measure attacker profit; never assert it"). Severity is
+> an economic judgment: who loses what, under which preconditions, whether the loss compounds, and
+> whether anyone can be made whole afterwards. A model that reads the shape and guesses the number
+> gets this wrong in both directions, and both directions are expensive.
+
+Before any tier above Low is final, the finding MUST carry these four fields. They are populated
+from the PoC where one exists (a `[FORK-PASS]` gives the measured delta directly) and from a traced
+calculation with real on-chain constants where it does not.
+
+```
+victim:        {named cohort — "any depositor in pool X", "the treasury", "LPs who entered before block N"}
+loss:          {measured amount + the bound: per-account / per-transaction / per-block / global}
+attacker_cost: {measured, and marked RECOVERABLE or UNRECOVERABLE — capital at risk vs capital burned}
+recoverable:   {can the victim be made whole afterwards? by whom, through which path, within what window}
+```
+
+| Tree branch | Additional requirement |
+|-------------|----------------------|
+| **a=YES** (theft/loss/lock) | `loss` measured as a delta from a **zero-capital start**, or the required capital stated in `attacker_cost` and marked RECOVERABLE (flash-loanable) vs UNRECOVERABLE. An a=YES with no measured `loss` **caps at Low**. |
+| **b=1** (availability) | Existing grief-economics gates G1/G2/G3 apply unchanged. |
+| **b=2** (compounding drift) | State the **drift rate** and the horizon to material value: "X bps per call, ~$Y over Z days at current TVL". "It compounds" without a rate **caps at Low** — compounding is the mechanism, not the impact. |
+| **b=3** (invariant break) | Cite the invariant's source (docs / `fuzz/invariants.rs` / code comment) and state the downstream value consequence, or accept Low. An unsourced invariant is the auditor's opinion. |
+| **b=4** (accounting inconsistency) | State the drift magnitude and whether it is bounded. Bounded-and-dust with no theft path is Low. |
+
+**Do not invent the number.** If the figure cannot be measured or traced, write `loss: UNQUANTIFIED
+— {what blocks measurement}` and cap the finding at Low. That is a legitimate outcome and a correct
+report. A fabricated figure fails the claim ledger at Gate 5 and, worse, survives it when the
+fabrication is plausible.
+
+**Escalation is symmetric.** The gate is not only a downgrade mechanism: if the measured `loss` is
+materially larger than the claimed tier implies (a "Low" rounding issue that measures $40k per block
+at current TVL), escalate. Getting impact wrong is equally costly in both directions — an inflated
+High burns triage credibility, a missed High burns the finding.
+
+---
+
 ## Interpreting "directly stolen, lost, or permanently locked" (question a)
 
 YES requires ALL of the following:
