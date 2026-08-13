@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "severity": "High",
+      "class": "reentrancy",
+      "location": { "file": "src/Vault.sol", "line_start": 14, "line_end": 20 },
+      "description": "withdraw() makes external call before updating balances mapping, enabling reentrant withdrawal",
+      "must_detect": true
+    }
+  ],
+  "false_positive_traps": [
+    {
+      "description": "safeWithdraw() updates state before external call — correct pattern, should NOT be flagged",
+      "location": { "file": "src/Vault.sol", "line_start": 24, "line_end": 31 }
+    }
+  ]
+}

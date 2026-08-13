@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "severity": "High",
+      "class": "pda-security",
+      "location": { "file": "src/lib.rs", "line_start": 18, "line_end": 26 },
+      "description": "claim_reward() accepts any Config account without verifying PDA seeds — attacker can create fake config pointing to their own treasury",
+      "must_detect": true
+    }
+  ],
+  "false_positive_traps": [
+    {
+      "description": "initialize() correctly derives PDA with seeds constraint — should NOT be flagged",
+      "location": { "file": "src/lib.rs", "line_start": 31, "line_end": 47 }
+    }
+  ]
+}

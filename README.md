@@ -1,6 +1,8 @@
 # DewaxGuard — Ultimate Smart Contract Security Auditor
 
-A Claude Code skill that combines three audit methodologies into one unified pipeline for maximum bug coverage.
+A multi-agent security-audit skill for Claude Code and OpenAI Codex. The existing
+root skill remains Claude-native; the Codex-native package lives under
+[`codex/dewaxguard`](codex/dewaxguard).
 
 ## What Makes DewaxGuard Different
 
@@ -15,6 +17,8 @@ A Claude Code skill that combines three audit methodologies into one unified pip
 
 ## Installation
 
+### Claude Code
+
 ```bash
 # Clone to your Claude commands directory
 git clone https://github.com/BadGenius22/Claude-Skills.git
@@ -22,6 +26,16 @@ cp -r Claude-Skills/dewaxguard ~/.claude/commands/
 
 # Or symlink
 ln -s /path/to/Claude-Skills/dewaxguard ~/.claude/commands/dewaxguard
+```
+
+### OpenAI Codex
+
+Install or symlink only the Codex package so its paths, agent coordination, model
+roles, and deterministic driver remain Codex-native:
+
+```bash
+mkdir -p ~/.agents/skills
+ln -s /path/to/dewaxguard/codex/dewaxguard ~/.agents/skills/dewaxguard
 ```
 
 ## Usage
@@ -36,6 +50,19 @@ cd /path/to/smart-contract-project
 /dewaxguard core platform:sherlock   # Score findings for Sherlock criteria
 /dewaxguard light                    # Quick scan, Sonnet-only
 ```
+
+In Codex, invoke the skill with `$dewaxguard`:
+
+```text
+$dewaxguard core .
+$dewaxguard thorough . platform:sherlock
+$dewaxguard core contracts --driver
+```
+
+The Codex package reads applicable `AGENTS.md` files and the optional global
+threat-model references at `~/.codex/audit-references/threat-model-references.md`.
+It uses Codex subagents when the session allows delegation and `codex exec --json`
+for deterministic driver mode.
 
 ## Options
 

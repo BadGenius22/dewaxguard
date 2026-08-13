@@ -1,0 +1,30 @@
+{
+  "_oracle_review": {
+    "status": "corrected",
+    "version": "1.21.0",
+    "note": "The original sole finding (a 'concurrent read-then-write race' on a Sui shared object) is DISPUTED: Sui consensus serializes all transactions taking a shared object as input, so the EVM/database lost-update interleaving it describes cannot occur. See platform-quirks/sui.md #1 and refuted/INDEX.md RF-12. It is retained with must_detect=false for documentation. The real, independently-verifiable bug in this code (no withdraw/claim path exists for the accumulated Balance<SUI>, so all deposits are permanently locked) is added as the must_detect finding."
+  },
+  "findings": [
+    {
+      "severity": "High",
+      "class": "permanent-fund-lock",
+      "location": { "file": "src/pool.move", "line_start": 19, "line_end": 28 },
+      "description": "deposit() accumulates Coin<SUI> into pool.balance (a linear Balance<SUI>) but the module has no withdraw/claim/split path — all deposited funds are permanently locked",
+      "must_detect": true
+    },
+    {
+      "severity": "Medium",
+      "class": "concurrency",
+      "location": { "file": "src/pool.move", "line_start": 21, "line_end": 29 },
+      "description": "DISPUTED (see _oracle_review): claimed read-then-write race on shared Pool. Sui serializes shared-object access; reframe as cross-transaction staleness of reward_per_depositor, not a lost-update race",
+      "must_detect": false,
+      "disputed": true
+    }
+  ],
+  "false_positive_traps": [
+    {
+      "description": "get_reward_estimate() is read-only with immutable reference — no race condition possible, should NOT be flagged",
+      "location": { "file": "src/pool.move", "line_start": 32, "line_end": 34 }
+    }
+  ]
+}

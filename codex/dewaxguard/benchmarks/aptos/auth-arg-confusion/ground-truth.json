@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "severity": "High",
+      "class": "access-control",
+      "location": { "file": "src/bank.move", "line_start": 20, "line_end": 31 },
+      "description": "withdraw() authorizes against a caller-supplied claimed_owner argument instead of the transaction signer; any attacker passes the real owner's address, passes the assert, and receives the extracted coins — permissionless theft of any vault",
+      "must_detect": true
+    }
+  ],
+  "false_positive_traps": [
+    {
+      "description": "balance() is a #[view] read-only accessor — no auth required, must NOT be flagged as missing-access-control",
+      "location": { "file": "src/bank.move", "line_start": 34, "line_end": 39 }
+    }
+  ]
+}

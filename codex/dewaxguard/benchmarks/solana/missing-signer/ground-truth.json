@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "severity": "High",
+      "class": "access-control",
+      "location": { "file": "src/lib.rs", "line_start": 10, "line_end": 21 },
+      "description": "withdraw() does not verify authority as signer — anyone can drain vault funds by passing any authority pubkey",
+      "must_detect": true
+    }
+  ],
+  "false_positive_traps": [
+    {
+      "description": "safe_withdraw() uses Signer type with key constraint — correct pattern, should NOT be flagged",
+      "location": { "file": "src/lib.rs", "line_start": 24, "line_end": 34 }
+    }
+  ]
+}

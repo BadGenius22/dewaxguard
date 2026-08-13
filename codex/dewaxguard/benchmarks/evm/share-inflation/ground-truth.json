@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "severity": "Critical",
+      "class": "share-inflation",
+      "location": { "file": "src/SimpleVault.sol", "line_start": 17, "line_end": 30 },
+      "description": "First depositor can donate assets directly to inflate totalAssets, causing subsequent depositors to receive 0 shares due to rounding",
+      "must_detect": true
+    }
+  ],
+  "false_positive_traps": [
+    {
+      "description": "withdraw() arithmetic is correct given current shares — should NOT be flagged as separate vulnerability",
+      "location": { "file": "src/SimpleVault.sol", "line_start": 33, "line_end": 41 }
+    }
+  ]
+}

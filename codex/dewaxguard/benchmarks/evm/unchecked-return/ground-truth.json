@@ -1,0 +1,17 @@
+{
+  "findings": [
+    {
+      "severity": "Medium",
+      "class": "unchecked-return",
+      "location": { "file": "src/TokenSender.sol", "line_start": 13, "line_end": 18 },
+      "description": "Low-level call return value discarded in sendEth(), funds deducted from balance but transfer may silently fail",
+      "must_detect": true
+    }
+  ],
+  "false_positive_traps": [
+    {
+      "description": "safeSendEth() properly checks return value — should NOT be flagged",
+      "location": { "file": "src/TokenSender.sol", "line_start": 21, "line_end": 28 }
+    }
+  ]
+}

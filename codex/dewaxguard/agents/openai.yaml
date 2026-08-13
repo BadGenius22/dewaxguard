@@ -1,0 +1,4 @@
+interface:
+  display_name: "DewaxGuard"
+  short_description: "Deep multi-language blockchain security audits"
+  default_prompt: "Use $dewaxguard core on the current repository and produce an evidence-backed security audit."

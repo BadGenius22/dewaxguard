@@ -1,0 +1,101 @@
+{
+  "version": "1.0.0",
+  "benchmarks": [
+    {
+      "id": "evm-reentrancy-basic",
+      "name": "Basic Reentrancy",
+      "language": "evm",
+      "path": "evm/reentrancy-basic",
+      "difficulty": "easy",
+      "vulnerability_class": "reentrancy",
+      "expected_severity": "High",
+      "lines_of_code": 40,
+      "added_in": "1.2.0",
+      "description": "External call before state update allows reentrant withdrawal"
+    },
+    {
+      "id": "evm-share-inflation",
+      "name": "ERC4626 Share Inflation",
+      "language": "evm",
+      "path": "evm/share-inflation",
+      "difficulty": "medium",
+      "vulnerability_class": "share-inflation",
+      "expected_severity": "Critical",
+      "lines_of_code": 60,
+      "added_in": "1.2.0",
+      "description": "First depositor can inflate share price to steal from subsequent depositors"
+    },
+    {
+      "id": "evm-unchecked-return",
+      "name": "Unchecked External Call Return",
+      "language": "evm",
+      "path": "evm/unchecked-return",
+      "difficulty": "easy",
+      "vulnerability_class": "unchecked-return",
+      "expected_severity": "Medium",
+      "lines_of_code": 30,
+      "added_in": "1.2.0",
+      "description": "Low-level call return value not checked, silent failure"
+    },
+    {
+      "id": "solana-missing-signer",
+      "name": "Missing Signer Check",
+      "language": "solana",
+      "path": "solana/missing-signer",
+      "difficulty": "easy",
+      "vulnerability_class": "access-control",
+      "expected_severity": "High",
+      "lines_of_code": 50,
+      "added_in": "1.2.0",
+      "description": "Instruction handler does not verify signer authority"
+    },
+    {
+      "id": "solana-pda-substitution",
+      "name": "PDA Substitution",
+      "language": "solana",
+      "path": "solana/pda-substitution",
+      "difficulty": "medium",
+      "vulnerability_class": "pda-security",
+      "expected_severity": "High",
+      "lines_of_code": 60,
+      "added_in": "1.2.0",
+      "description": "PDA account not validated against expected seeds, allowing substitution"
+    },
+    {
+      "id": "sui-shared-object-race",
+      "name": "Shared Object Race Condition",
+      "language": "sui",
+      "path": "sui/shared-object-race",
+      "difficulty": "medium",
+      "vulnerability_class": "concurrency",
+      "expected_severity": "Medium",
+      "lines_of_code": 50,
+      "added_in": "1.2.0",
+      "description": "Shared object state read-then-write without atomic guarantee"
+    },
+    {
+      "id": "aptos-auth-arg-confusion",
+      "name": "Auth Argument Confusion",
+      "language": "aptos",
+      "path": "aptos/auth-arg-confusion",
+      "difficulty": "medium",
+      "vulnerability_class": "access-control",
+      "expected_severity": "High",
+      "lines_of_code": 40,
+      "added_in": "1.22.0",
+      "description": "withdraw() authorizes against a caller-supplied owner argument instead of the transaction signer, allowing any attacker to drain any vault"
+    },
+    {
+      "id": "stellar-missing-require-auth",
+      "name": "Missing require_auth on transfer",
+      "language": "stellar",
+      "path": "stellar/missing-require-auth",
+      "difficulty": "easy",
+      "vulnerability_class": "access-control",
+      "expected_severity": "High",
+      "lines_of_code": 35,
+      "added_in": "1.22.0",
+      "description": "transfer() debits the from address without from.require_auth(), letting any caller move any address's balance; sibling burn() shows the correct pattern"
+    }
+  ]
+}
