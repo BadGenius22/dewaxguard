@@ -15,13 +15,26 @@ A Claude Code skill that combines three audit methodologies into one unified pip
 
 ## Installation
 
-```bash
-# Clone to your Claude commands directory
-git clone https://github.com/BadGenius22/Claude-Skills.git
-cp -r Claude-Skills/dewaxguard ~/.claude/commands/
+Install this repository as a personal Claude Code skill:
 
-# Or symlink
-ln -s /path/to/Claude-Skills/dewaxguard ~/.claude/commands/dewaxguard
+```bash
+mkdir -p "$HOME/.claude/skills"
+git clone https://github.com/BadGenius22/dewaxguard.git "$HOME/.claude/skills/dewaxguard"
+```
+
+This places `SKILL.md` and its supporting files at `~/.claude/skills/dewaxguard/`, matching the paths used throughout the audit workflow. See the [Claude Code skills documentation](https://code.claude.com/docs/en/skills) for personal skill locations.
+
+Alternatively, if you already cloned this repository elsewhere, run the following **from the root of that checkout** instead of the install commands above:
+
+```bash
+mkdir -p "$HOME/.claude/skills"
+ln -s "$PWD" "$HOME/.claude/skills/dewaxguard"
+```
+
+Use one installation method. If `~/.claude/skills/dewaxguard` already exists, reuse that installation rather than creating a second copy. To update an existing Git checkout:
+
+```bash
+git -C "$HOME/.claude/skills/dewaxguard" pull --ff-only
 ```
 
 ## Usage
@@ -72,9 +85,12 @@ Phase 6:    Report (submission-ready)
 Instead of the prompt-only LLM orchestrator, a deterministic Python driver can run the pipeline as one `claude -p` subprocess per phase, with content/coverage gates and crash-resumable checkpoints between phases:
 
 ```bash
-python3 scripts/dewaxguard_driver.py --mode core --src ./contracts [--resume]
-python3 scripts/dewaxguard_driver.py --mode thorough --src ./node --l1   # Go/Rust L1 node clients
+# Run from the project you want to audit; --src is relative to that directory.
+python3 "$HOME/.claude/skills/dewaxguard/scripts/dewaxguard_driver.py" --mode core --src ./contracts
+python3 "$HOME/.claude/skills/dewaxguard/scripts/dewaxguard_driver.py" --mode thorough --src ./node --l1
 ```
+
+Replace `./contracts` or `./node` with the source directory to audit. Append `--resume` to resume an interrupted run from its existing checkpoints.
 
 **Model tiering** — each phase's subprocess runs at a tier chosen by role: high-token workers (PoC/trace) and fan-out dispatchers run cheap, the finding sub-agents stay premium, and the bug-validator decision gate runs at the commander tier. Pass `--commander-model fable` to run that gate on Fable 5 (a "premium advisor at decision points" pattern). See [`rules/model-tiering.md`](rules/model-tiering.md).
 
