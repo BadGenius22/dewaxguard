@@ -1,155 +1,138 @@
-# DewaxGuard — Ultimate Smart Contract Security Auditor
+# 🛡️ DewaxGuard
 
-A Claude Code skill that combines three audit methodologies into one unified pipeline for maximum bug coverage.
+DewaxGuard is a [Claude Code skill](https://code.claude.com/docs/en/skills) for reviewing smart contracts and blockchain node code for security issues. It checks the code from several angles, tries to confirm possible bugs, and writes a report you can review.
 
-## What Makes DewaxGuard Different
+It supports Solidity, Rust, Move, C/C++, and Go projects. The checks vary by language and chain.
 
-| Feature | Traditional Audit | DewaxGuard |
-|---------|------------------|------------|
-| **Breadth** | 2-3 generic agents | 8 specialized hacking agents (vector scan, math, access control, economic, execution trace, invariant, periphery, first principles) |
-| **Depth** | Business logic only | 6 agents including **language low-level** (casts, unsafe, serialization) and **runtime-specific** (VM exploits, tx composition) |
-| **Cross-feed** | Single pass | Nemesis iterative loop — Feynman ↔ State Inconsistency until convergence |
-| **Verification** | Code trace / unit test | **Mainnet fork PoC** — real contract calls on forked chain |
-| **Quality** | Submit and hope | **Pre-submission bug validator** — 4-gate scoring against platform criteria |
-| **Languages** | Single chain | Solidity, Rust/Solana, Rust/Soroban (Stellar), Move/Aptos, Move/Sui, C/C++ (rippled, Bitcoin Core), Go (L1 node clients) |
+## 🚀 Get started
 
-## Installation
-
-Install this repository as a personal Claude Code skill:
+Install the skill with Git:
 
 ```bash
 mkdir -p "$HOME/.claude/skills"
 git clone https://github.com/BadGenius22/dewaxguard.git "$HOME/.claude/skills/dewaxguard"
 ```
 
-This places `SKILL.md` and its supporting files at `~/.claude/skills/dewaxguard/`, matching the paths used throughout the audit workflow. See the [Claude Code skills documentation](https://code.claude.com/docs/en/skills) for personal skill locations.
+Then open Claude Code in the project you want to audit:
 
-Alternatively, if you already cloned this repository elsewhere, run the following **from the root of that checkout** instead of the install commands above:
+```bash
+cd /path/to/your-project
+claude
+```
+
+At the Claude Code prompt, enter:
+
+```text
+/dewaxguard
+```
+
+This runs the default **core** audit. DewaxGuard detects the project's language and starts its review.
+
+If you already cloned this repository somewhere else, you can link that checkout instead. Run these commands from the repository's root directory:
 
 ```bash
 mkdir -p "$HOME/.claude/skills"
 ln -s "$PWD" "$HOME/.claude/skills/dewaxguard"
 ```
 
-Use one installation method. If `~/.claude/skills/dewaxguard` already exists, reuse that installation rather than creating a second copy. To update an existing Git checkout:
+Use either the clone or the link. If `~/.claude/skills/dewaxguard` already exists, use that installation. To update a Git checkout installed at that path, run:
 
 ```bash
 git -C "$HOME/.claude/skills/dewaxguard" pull --ff-only
 ```
 
-## Usage
+## 🔎 Choose an audit mode
+
+| Mode | When to use it | What it does |
+| --- | --- | --- |
+| `light` | You want a quicker first pass | Runs a smaller set of checks. |
+| `core` | You want the standard audit | Runs the main checks and deeper follow-up analysis. This is the default. |
+| `thorough` | You want the most detailed review | Adds more attack angles and repeated checks. It takes longer. |
+
+Enter these commands at the Claude Code prompt:
+
+```text
+/dewaxguard light
+/dewaxguard core
+/dewaxguard thorough
+/dewaxguard core platform:sherlock
+```
+
+The last example checks findings against Sherlock's judging criteria. You can also pass a project path: `/dewaxguard core /path/to/project`.
+
+### Other options
+
+| Option | Meaning |
+| --- | --- |
+| `platform:{name}` | Use the rules for `c4`, `sherlock`, `cantina`, or `immunefi`. |
+| `network:{name}` | Select a network for fork testing, such as `ethereum`, `arbitrum`, or `base`. |
+| `docs:{url}` | Give DewaxGuard a documentation page to use during the review. |
+| `nodocs` | Skip documentation analysis. |
+| `scope:{file}` | Limit the review to specific files or contracts. |
+| `proven-only:true` | Keep findings without proof at Low severity or below. |
+
+## 🧭 What happens during an audit?
+
+1. **Understand the project.** DewaxGuard reads the code, build setup, and available documentation.
+2. **Look for issues.** Specialized agents check areas such as permissions, math, state changes, and interactions with other contracts. Deeper modes add more checks.
+3. **Check possible findings.** The workflow traces the relevant code and may run a unit test or proof of concept. Where supported, it can test contract calls on a fork of a live chain.
+4. **Write the report.** It reviews findings against the selected platform's criteria and records what the audit did not cover.
+
+A finding is a lead to investigate, not a guarantee that an exploit works. Review the evidence and reproduce important findings before relying on the report.
+
+## 🌐 Supported codebases
+
+| Codebase | Examples of issues checked |
+| --- | --- |
+| Solidity / EVM | Reentrancy, unsafe assembly, storage changes through `delegatecall`, and signature replay. |
+| Rust / Solana | Account permissions, PDA handling, unsafe casts, and compute limits. |
+| Rust / Soroban (Stellar) | Authorization, storage lifetime, serialization, and cross-contract calls. |
+| Move / Aptos | Resource rules, module upgrades, and transaction behavior. |
+| Move / Sui | Object ownership, shared objects, and package upgrades. |
+| C/C++ node code | Memory safety, serialization, and consensus edge cases. |
+| Go node code | Consensus rules, nondeterministic behavior, networking, and mempool handling. |
+
+For native node code, verification may use unit tests because a chain fork is not always available.
+
+## ⚙️ Advanced: run the Python driver
+
+The normal `/dewaxguard` command runs the Claude Code workflow. An optional Python driver runs each audit phase as a separate `claude -p` process, checks the output between phases, and saves progress so you can resume an interrupted run.
+
+Run it from the project you want to audit. Replace `./contracts` with the source directory in that project:
 
 ```bash
-# In Claude Code, navigate to the project directory
-cd /path/to/smart-contract-project
-
-# Run audit
-/dewaxguard                          # Auto-detect language, Core mode
-/dewaxguard thorough                 # Maximum depth (Nemesis + fork PoC)
-/dewaxguard core platform:sherlock   # Score findings for Sherlock criteria
-/dewaxguard light                    # Quick scan, Sonnet-only
-```
-
-## Options
-
-| Flag | Effect |
-|------|--------|
-| `light` / `core` / `thorough` | Audit depth (default: core) |
-| `platform:{name}` | Judging criteria: `c4`, `sherlock`, `cantina`, `immunefi` |
-| `network:{name}` | Fork chain: `ethereum`, `arbitrum`, `base`, `solana`, etc. |
-| `docs:{url}` | Documentation URL for trust model calibration |
-| `nodocs` | Skip documentation analysis |
-| `scope:{file}` | Limit to specific files/contracts |
-| `proven-only:true` | Cap unproven findings at Low severity |
-
-## Pipeline
-
-```
-Phase 1:    Recon (4 agents — build, docs, patterns, attack surface)
-Phase 2:    Instantiation (template binding per language)
-Phase 3:    Breadth (8 specialized hacking agents in parallel)
-Phase 4a:   Inventory + Deduplication
-Phase 4a.5: Semantic Invariants (Core/Thorough)
-Phase 4b:   Depth (6 agents: standard 4 + lowlevel + runtime)
-Phase 4b.1: Nemesis Cross-Feed (Thorough only)
-Phase 4c:   Chain Analysis (compound attack paths)
-Phase 5a:   Code Trace
-Phase 5b:   Unit PoC
-Phase 5c:   Mainnet Fork PoC (Critical/High/Medium)
-Phase 5d:   Bug Validator (platform scoring)
-Phase 6:    Report (submission-ready)
-```
-
-## Driver mode (advanced, opt-in)
-
-Instead of the prompt-only LLM orchestrator, a deterministic Python driver can run the pipeline as one `claude -p` subprocess per phase, with content/coverage gates and crash-resumable checkpoints between phases:
-
-```bash
-# Run from the project you want to audit; --src is relative to that directory.
 python3 "$HOME/.claude/skills/dewaxguard/scripts/dewaxguard_driver.py" --mode core --src ./contracts
+```
+
+Add `--resume` to continue from saved progress. For a Go or Rust node client, use `--l1`:
+
+```bash
 python3 "$HOME/.claude/skills/dewaxguard/scripts/dewaxguard_driver.py" --mode thorough --src ./node --l1
 ```
 
-Replace `./contracts` or `./node` with the source directory to audit. Append `--resume` to resume an interrupted run from its existing checkpoints.
+The driver can choose different models for different phases. See [model tiering](rules/model-tiering.md) for details.
 
-**Model tiering** — each phase's subprocess runs at a tier chosen by role: high-token workers (PoC/trace) and fan-out dispatchers run cheap, the finding sub-agents stay premium, and the bug-validator decision gate runs at the commander tier. Pass `--commander-model fable` to run that gate on Fable 5 (a "premium advisor at decision points" pattern). See [`rules/model-tiering.md`](rules/model-tiering.md).
+### Recon tools
 
-## Supported Languages
-
-| Language | Low-Level Checks | Runtime Checks |
-|----------|-----------------|----------------|
-| **Solidity** | Assembly safety, abi.encode collisions, unchecked blocks, delegatecall storage, type truncation | Reentrancy, gas griefing, CREATE2, selfdestruct injection, EIP-712 replay |
-| **Rust/Solana** | `as` cast bypass, zero_copy padding, unsafe blocks, borsh serialization | CU exhaustion, account aliasing, PDA collision, instruction composition, CPI trust |
-| **Rust/Soroban (Stellar)** | `as` cast bypass, unsafe blocks, serialization | Archive/restore state, `require_auth` gaps, storage TTL, cross-contract trust |
-| **Move/Aptos** | Ability constraints, generic type exploits, reference lifecycle, object model | Module upgrades, resource publishing, tx composition, gas metering |
-| **Move/Sui** | Object ownership, dynamic fields, witness pattern, coin safety | PTB composition, package upgrades, shared object contention, clock manipulation |
-| **C/C++ (native nodes)** | Integer overflow, unsafe casts, memory safety, serialization | rippled / Bitcoin Core tx composition, consensus edge cases (unit-test PoC; fork not feasible) |
-| **Go (L1 node clients)** | Unsafe casts, serialization, non-determinism (map iteration, floats, RNG) | Consensus invariants, slashing, fork choice, p2p/RPC surface, mempool admission (via `--l1` mode) |
-
-## Methodology Sources
-
-- **Breadth agents**: Adapted from [Pashov's Solidity Auditor](https://github.com/pashov/skills)
-- **Nemesis cross-feed**: Feynman technique + State Inconsistency mapping
-- **Plamen pipeline**: Full audit orchestration framework
-- **Bug Validator**: Platform-specific judging criteria (C4, Sherlock, Cantina, Immunefi)
-- **Recon map builder & Rust squeezer (v1.7.0)**: Ported from [cosminmarian53/skills `soroban-auditor`](https://github.com/cosminmarian53/skills/tree/main/soroban-auditor) (MIT). Generalizes the deterministic preprocessor + body-collapse approach from Soroban-only to multi-language (evm/solana/stellar/aptos/sui/cpp).
-
-## Recon scripts (v1.7.0)
-
-Two deterministic preprocessors that emit greppable artifacts before agents spawn — replaces ad-hoc per-agent grep work, reduces token cost, and produces stable cross-agent context.
+The repository also includes scripts that prepare code maps before an audit. Run these from the DewaxGuard checkout, replacing `./contracts` with the path to the code you want to review:
 
 ```bash
-# Build all recon maps (guard, state-flags, integration, math, unsafe,
-# logic-anomaly, blackhat, divergence, invariant-extract, docs-intent,
-# auth-critical-files allowlist) into $SCRATCHPAD.
-scripts/build_recon_maps.sh \
-    --lang stellar \
-    --src ./contracts \
-    --out ./scratchpad \
-    --docs .                # default: ./ for docs/, README.md, etc.
-
-# Squeeze Rust sources for context-light agent bundles. Auth-critical
-# allowlist files keep full bodies; others collapse fn bodies to `{ ... }`.
-python3 scripts/squeezers/squeezer_rust.py \
-    --collapse-bodies --numbered \
-    --keep-full "admin.rs,access_control,token/src/contract.rs" \
-    contracts/**/*.rs > ./scratchpad/core-minified.rs
+scripts/build_recon_maps.sh --lang stellar --src ./contracts --out ./scratchpad --docs .
+python3 scripts/squeezers/squeezer_rust.py --collapse-bodies --numbered contracts/**/*.rs > ./scratchpad/core-minified.rs
 ```
 
-The artifacts are consumed by:
-- `rules/docs-intent-map.md` — Phase 5d Gate 1a (validator) hard-fails findings without `docs_intent_check:` populated against the docs-intent map.
-- `rules/auth-critical-files.md` — agents must record `auth_check: SAW_FULL_BODY / SAW_GUARD / SKELETON_ONLY` for any missing-auth claim, derived from the squeezer's `[full-bodies]` / `[collapsed]` tag.
-- `rules/agent-tool-budgets.md` — mandatory greps against `guard-map.md`, `integration-map.md`, etc. count against per-agent Read/Grep budgets but cannot be skipped.
+The first command maps areas such as authorization, state changes, and integrations. The second makes a shorter copy of Rust source for agent context. See [documentation intent](rules/docs-intent-map.md), [authorization checks](rules/auth-critical-files.md), and [agent tool budgets](rules/agent-tool-budgets.md) for how the workflow uses these files.
 
-## Requirements
+## 📦 Requirements
 
-- Claude Code (claude.ai/code)
-- **EVM**: Foundry (forge, anvil)
-- **Solana**: solana-cli, anchor-cli
-- **Aptos**: aptos-cli
-- **Sui**: sui-cli
-- Git, Python 3, Node.js (for some tooling)
+- [Claude Code](https://code.claude.com/)
+- Git and Python 3; some tools also use Node.js
+- Chain tools for the project you audit: Foundry (`forge`, `anvil`) for EVM, Solana CLI and Anchor for Solana, Aptos CLI for Aptos, or Sui CLI for Sui
 
-## License
+## 📚 Methodology and credits
+
+The broad first pass draws on [Pashov's Solidity Auditor](https://github.com/pashov/skills). The deeper workflow combines business-logic review, state-consistency checks, and finding validation. The recon map builder and Rust source shortener adapt work from [cosminmarian53's Soroban auditor](https://github.com/cosminmarian53/skills/tree/main/soroban-auditor) (MIT).
+
+## 📄 License
 
 MIT
