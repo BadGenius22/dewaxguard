@@ -21,7 +21,7 @@ fail() { echo "FAIL: $*"; FAIL=1; }
 ok()   { echo "  ok: $*"; }
 
 echo "== 1. Version sync =="
-v_file=$(tr -d ' \n' < VERSION)
+v_file=$(tr -d ' \r\n' < VERSION)
 v_skill=$(grep -oE '\*\*v[0-9]+\.[0-9]+\.[0-9]+\*\*' SKILL.md | head -1 | tr -d '*v')
 v_chlog=$(grep -oE '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md | head -1 | tr -d '#[] ')
 [ "$v_file" = "$v_skill" ] || fail "VERSION ($v_file) != SKILL.md banner ($v_skill)"

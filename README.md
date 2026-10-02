@@ -1,10 +1,12 @@
 # 🛡️ DewaxGuard
 
-DewaxGuard is a [Claude Code skill](https://code.claude.com/docs/en/skills) for reviewing smart contracts and blockchain node code for security issues. It checks the code from several angles, tries to confirm possible bugs, and writes a report you can review.
+DewaxGuard is a reusable agent skill for [Claude Code](https://code.claude.com/docs/en/skills) and [Codex](https://learn.chatgpt.com/docs/build-skills) that reviews smart contracts and blockchain node code for security issues. It checks the code from several angles, tries to confirm possible bugs, and writes a report you can review.
 
 It supports Solidity, Rust, Move, C/C++, and Go projects. The checks vary by language and chain.
 
 ## 🚀 Get started
+
+### Install for Claude Code
 
 Install the skill with Git:
 
@@ -41,6 +43,28 @@ Use either the clone or the link. If `~/.claude/skills/dewaxguard` already exist
 git -C "$HOME/.claude/skills/dewaxguard" pull --ff-only
 ```
 
+### Install for Codex
+
+Codex discovers personal skills from `~/.agents/skills` and project skills from `.agents/skills` at the project root. Install DewaxGuard for your account with Git:
+
+```bash
+mkdir -p "$HOME/.agents/skills"
+git clone https://github.com/BadGenius22/dewaxguard.git "$HOME/.agents/skills/dewaxguard"
+```
+
+For a project-local install, clone it under that project instead (replace `/path/to/your-project`):
+
+```bash
+mkdir -p /path/to/your-project/.agents/skills
+git clone https://github.com/BadGenius22/dewaxguard.git /path/to/your-project/.agents/skills/dewaxguard
+```
+
+Open the project in Codex and invoke the skill with `$dewaxguard`, or select it from `/skills`. For example, request `$dewaxguard thorough` to run a thorough review. To update the personal Git checkout, run:
+
+```bash
+git -C "$HOME/.agents/skills/dewaxguard" pull --ff-only
+```
+
 ## 🔎 Choose an audit mode
 
 | Mode | When to use it | What it does |
@@ -49,7 +73,7 @@ git -C "$HOME/.claude/skills/dewaxguard" pull --ff-only
 | `core` | You want the standard audit | Runs the main checks and deeper follow-up analysis. This is the default. |
 | `thorough` | You want the most detailed review | Adds more attack angles and repeated checks. It takes longer. |
 
-Enter these commands at the Claude Code prompt:
+In Claude Code, enter these commands at the prompt:
 
 ```text
 /dewaxguard light
@@ -59,6 +83,8 @@ Enter these commands at the Claude Code prompt:
 ```
 
 The last example checks findings against Sherlock's judging criteria. You can also pass a project path: `/dewaxguard core /path/to/project`.
+
+In Codex, invoke `$dewaxguard` and include the mode, project path, or options in your request, for example `$dewaxguard core platform:sherlock`.
 
 ### Other options
 
@@ -96,12 +122,18 @@ For native node code, verification may use unit tests because a chain fork is no
 
 ## ⚙️ Advanced: run the Python driver
 
-The normal `/dewaxguard` command runs the Claude Code workflow. An optional Python driver runs each audit phase as a separate `claude -p` process, checks the output between phases, and saves progress so you can resume an interrupted run.
+The normal skill invocation uses the active agent workflow. An optional Python driver runs each audit phase as a separate CLI process, checks output between phases, and saves progress so you can resume an interrupted run. It defaults to Claude Code; pass `--backend codex` to use `codex exec` instead. Codex uses its configured default model for these phases; Claude-specific model tier options do not select Codex models.
 
 Run it from the project you want to audit. Replace `./contracts` with the source directory in that project:
 
 ```bash
 python3 "$HOME/.claude/skills/dewaxguard/scripts/dewaxguard_driver.py" --mode core --src ./contracts
+```
+
+For Codex, use the installed skill path and select its backend:
+
+```bash
+python3 "$HOME/.agents/skills/dewaxguard/scripts/dewaxguard_driver.py" --mode core --src ./contracts --backend codex
 ```
 
 Add `--resume` to continue from saved progress. For a Go or Rust node client, use `--l1`:
@@ -125,7 +157,7 @@ The first command maps areas such as authorization, state changes, and integrati
 
 ## 📦 Requirements
 
-- [Claude Code](https://code.claude.com/)
+- [Claude Code](https://code.claude.com/) or Codex
 - Git and Python 3; some tools also use Node.js
 - Chain tools for the project you audit: Foundry (`forge`, `anvil`) for EVM, Solana CLI and Anchor for Solana, Aptos CLI for Aptos, or Sui CLI for Sui
 

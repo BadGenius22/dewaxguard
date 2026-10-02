@@ -13,7 +13,7 @@ allowed-tools: Bash(*) Read(*) Write(*) Grep(*) Glob(*) Agent(*)
 ### Reading order
 
 **Step 1 — Project-local context** (skip if file does not exist; do NOT create):
-1. `{PROJECT_ROOT}/CLAUDE.md` — repo-specific scope rules, build/test commands, audit boundaries
+1. Project agent instructions: for example `{PROJECT_ROOT}/AGENTS.md` in Codex or `{PROJECT_ROOT}/CLAUDE.md` in Claude Code; read whichever files exist, including both if present. These define repo-specific scope rules, build/test commands, and audit boundaries.
 2. `{PROJECT_ROOT}/DEEP_DIVE_PLAN.md` — strategic plan for THIS audit (domain list, hypotheses, files-in-scope per domain, reward-pool framing). If present, this is the AUTHORITATIVE source for SCOPE_HINTs. Any SCOPE_HINT must derive from it (or explicitly note divergence with reasoning).
 3. `{PROJECT_ROOT}/scratchpad/learned/00_MANIFEST.md` — cumulative within-audit knowledge (F-/R-/D-/T-/L- entries). Pre-refutes hypotheses, shortcuts analysis. Read EVERY session, not just first.
 4. `{PROJECT_ROOT}/scratchpad/CONTEST_FAQ.md` — contest rules, reward pools, scope clarifications
@@ -21,7 +21,7 @@ allowed-tools: Bash(*) Read(*) Write(*) Grep(*) Glob(*) Agent(*)
 5a. `{PROJECT_ROOT}/*V12*-output.md` / `{PROJECT_ROOT}/*zellic*.md` — V12-style AI-auditor structured findings (if present, run `scripts/grep_v12.sh --count` to confirm presence, then `scripts/grep_v12.sh --invalid-only` to ingest the platform-knowledge corpus per **M-25**). MANDATORY when these files exist — V12 entries are out-of-scope per most contest rules and the `### Invalid Reason` sections are the highest-leverage platform-semantics reading.
 
 **Step 1.5 — Cross-tool audit method** (v1.33.0, always):
-5b. `~/.claude/audit-method.md` — the three tool-independent rules that bind every audit session: **A-1** a quiet pass is not coverage, **A-2** no uncited mechanism claim crosses a boundary, **A-3** a test that cannot fail proves nothing. Normally auto-loaded via `~/.claude/CLAUDE.md`; read it explicitly when running in driver mode or any subprocess where that import may not resolve. Every rule below implements one of these three.
+5b. If available, read the user's cross-tool audit method file (for example, `~/.claude/audit-method.md` in a Claude Code setup). The rules stated here are tool-independent and always apply: **A-1** a quiet pass is not coverage, **A-2** no uncited mechanism claim crosses a boundary, **A-3** a test that cannot fail proves nothing. Read any applicable method file explicitly in driver mode or subprocesses where it may not be loaded automatically.
 
 **Step 2 — Cross-audit context** (skip if file does not exist; load from `~/.claude/skills/dewaxguard/` or equivalent):
 6. `LEARNED_INDEX.md` — one-line summary per past audit; provides historical recall + RC distribution
@@ -42,7 +42,7 @@ Skipping preflight makes all downstream breadth/depth output suspect — refuted
 ### Self-check before declaring preflight complete
 
 Before proceeding to audit work, verify:
-- [ ] `~/.claude/audit-method.md` rules A-1/A-2/A-3 are in context (auto-loaded or read explicitly)
+- [ ] Cross-tool audit-method rules A-1/A-2/A-3 are in context (read the user method file when available)
 - [ ] DEEP_DIVE_PLAN.md was read (or absence noted)
 - [ ] MANIFEST.md was read (or absence noted — first session of new audit)
 - [ ] LEARNED_INDEX.md was read (or absence noted)
@@ -79,10 +79,10 @@ If any check fails, RE-READ the missing file. Do not proceed.
 - **Platform-Specific Bug Validation** (pre-submission quality gate)
 - **Negative-Space Spine** (v1.33.0) — test-gap map, findings-blind protocol model, blind re-run variance. The pipeline is good at producing findings and bad at knowing what it missed; these three phases build the complement and the report must publish it.
 
-> **Usage**: `/dewaxguard [light|core|thorough] [path] [options]`
-> **Driver mode (v1.13+, opt-in)**: `python3 ~/.claude/skills/dewaxguard/scripts/dewaxguard_driver.py --mode core --src ./contracts [--audit-id X] [--resume]` — replaces the prompt-only LLM orchestrator with a deterministic Python driver that spawns `claude -p` subprocesses per phase, runs content+coverage gates between phases, and checkpoints for crash resume. Legacy prompt-only mode remains the default.
+> **Usage**: Codex: `$dewaxguard [light|core|thorough] [path] [options]`; Claude Code: `/dewaxguard [light|core|thorough] [path] [options]`.
+> **Driver mode (v1.13+, opt-in)**: `python3 <skill-root>/scripts/dewaxguard_driver.py --mode core --src ./contracts [--backend claude|codex] [--audit-id X] [--resume]` runs a deterministic Python driver with phase subprocesses and content+coverage gates. The backend defaults to Claude Code (`claude -p`); select `--backend codex` for `codex exec`. Codex uses its configured default model; Claude-specific model-tier flags do not choose Codex models.
 > **L1 mode (v1.14+)**: append `--l1` to the driver invocation for Go/Rust node-client audits. Adds Phase 0.5 Bake (ast-grep/opengrep batch indexing); swaps `depth-state-trace` + `depth-external` for `depth-consensus-invariant` + `depth-network-surface`; applies the L1 severity matrix (`rules/l1-severity-matrix.md`) with evidence floors (`[DIFF-PASS]` / `[NON-DET-PASS]` → High minimum). Targets: Geth / Reth / Erigon / Lighthouse-Go variants / Prysm / Cosmos SDK chains / CometBFT / Bitcoin Core / rippled.
-> **Self-Improvement**: `/dewaxguard improve` | `/dewaxguard batch-import` | `/dewaxguard benchmark` | `/dewaxguard consolidate`
+> **Self-Improvement**: Ask the active skill invocation to `improve`, `batch-import`, `benchmark`, or `consolidate` (Claude Code examples use `/dewaxguard improve`, etc.).
 > **Languages**: Solidity, Rust/Solana, Rust/Soroban (Stellar), Move/Aptos, Move/Sui, C/C++ (native ledger nodes like rippled, Bitcoin Core), Go (L1 node clients)
 > **Platforms**: Code4rena, Sherlock, Cantina, Immunefi, HackenProof
 
@@ -133,7 +133,7 @@ Phase 6:    Report (submission-ready) + MANDATORY "What this audit did not cover
 > alike — and the run reports silence there as if it were a clean result. These three phases build the
 > complement (unexamined / unmodelled / unstable) into `{SCRATCHPAD}/negative-space.md`, which the
 > Phase 6 report must publish. Full spec: `rules/negative-space.md`. Binds global rule A-1 in
-> `~/.claude/audit-method.md`: a quiet pass is not coverage.
+> Cross-tool audit-method file: a quiet pass is not coverage.
 
 ---
 
@@ -150,9 +150,9 @@ Detect language automatically:
 | `*.move` + `sui::object` | `sui` |
 | `*.cpp`/`*.hpp`/`*.h`/`*.c` + `CMakeLists.txt`/`conanfile.py` (native ledger/consensus C++ codebases like rippled, Bitcoin Core) | `cpp` |
 
-> **Stellar note**: When `LANGUAGE=stellar`, the orchestrator MUST pass `~/.claude/skills/dewaxguard/platform-quirks/stellar.md` as context to every spawned agent (recon, breadth, depth, scanners, verifiers). Stellar has critical state archival semantics (persistent/instance storage archives with preserved values on TTL expiry rather than deleting) that have historically produced invalid findings when misunderstood. See `prompts/stellar/phase4b-lowlevel-templates.md` and `prompts/stellar/phase4b-runtime-templates.md` for the depth templates.
+> **Stellar note**: When `LANGUAGE=stellar`, the orchestrator MUST pass `<skill-root>/platform-quirks/stellar.md` as context to every spawned agent (recon, breadth, depth, scanners, verifiers). Stellar has critical state archival semantics (persistent/instance storage archives with preserved values on TTL expiry rather than deleting) that have historically produced invalid findings when misunderstood. See `prompts/stellar/phase4b-lowlevel-templates.md` and `prompts/stellar/phase4b-runtime-templates.md` for the depth templates.
 
-> **C/C++ (consensus-node) note**: When `LANGUAGE=cpp`, the orchestrator MUST pass `~/.claude/skills/dewaxguard/platform-quirks/cpp.md` as context to every spawned agent. The quirks file documents 11 critical behaviors specific to XRPL/rippled-style consensus nodes (TER result class semantics, transactor phase ordering, amendment gating, SLE field access, consensus determinism, invariant coverage, Fiat-Shamir context binding, owner count accounting, cross-tx composition, assertions-are-noops, C++ UB traps) plus a baseline known-issue list (XRPL issues #6863, #6867, #6875, #6884, #6894, #6895, #6908) for deduplication. Every finding must be cross-checked against the known-issue list. See `prompts/cpp/phase4b-lowlevel-templates.md` and `prompts/cpp/phase4b-runtime-templates.md` for the depth templates.
+> **C/C++ (consensus-node) note**: When `LANGUAGE=cpp`, the orchestrator MUST pass `<skill-root>/platform-quirks/cpp.md` as context to every spawned agent. The quirks file documents 11 critical behaviors specific to XRPL/rippled-style consensus nodes (TER result class semantics, transactor phase ordering, amendment gating, SLE field access, consensus determinism, invariant coverage, Fiat-Shamir context binding, owner count accounting, cross-tx composition, assertions-are-noops, C++ UB traps) plus a baseline known-issue list (XRPL issues #6863, #6867, #6875, #6884, #6894, #6895, #6908) for deduplication. Every finding must be cross-checked against the known-issue list. See `prompts/cpp/phase4b-lowlevel-templates.md` and `prompts/cpp/phase4b-runtime-templates.md` for the depth templates.
 
 ### Phase 1.0 — Deterministic preprocessors (run BEFORE recon agents)
 
@@ -518,8 +518,8 @@ Sourced from `{SCRATCHPAD}/negative-space.md`. It states, in plain English: entr
 
 On report delivery (Phase 6 complete), the orchestrator MUST do exactly one of:
 
-1. **Ground truth available** (contest results published, client triage returned, bounty verdicts in): run `/dewaxguard improve` — build the Finding Alignment Matrix, compute recall/precision, classify every miss through the RC-AGENT presumption gate, and append the metrics row to `MEMORY.md` + the audit line to `LEARNED_INDEX.md`.
-2. **Ground truth NOT yet available**: append a row to `MEMORY.md` with `Recall% = DEFERRED (results expected ~{date})`. The deferred row is a standing obligation — when results land, re-open with `/dewaxguard improve` and backfill the row. `TBD` rows older than 2 entries are a workflow violation; chase the results or mark the audit `no-ground-truth` explicitly.
+1. **Ground truth available** (contest results published, client triage returned, bounty verdicts in): run the skill's `improve` workflow — build the Finding Alignment Matrix, compute recall/precision, classify every miss through the RC-AGENT presumption gate, and append the metrics row to `MEMORY.md` + the audit line to `LEARNED_INDEX.md`.
+2. **Ground truth NOT yet available**: append a row to `MEMORY.md` with `Recall% = DEFERRED (results expected ~{date})`. The deferred row is a standing obligation — when results land, re-open the skill's `improve` workflow and backfill the row. `TBD` rows older than 2 entries are a workflow violation; chase the results or mark the audit `no-ground-truth` explicitly.
 
 Either path also requires the `LEARNED_INDEX.md` growth-protocol steps (promote methodologies, archive patterns, enrich platform-quirks, commit + push).
 
