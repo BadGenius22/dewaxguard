@@ -1,5 +1,16 @@
 # DewaxGuard Changelog
 
+## [1.34.1] - 2026-10-02
+
+- Removed the fixed execution-environment requirement. Authorized targeted PoCs
+  now use the environment permitted by the user's current request and runtime;
+  no specific launcher, service or registration workflow is prescribed.
+- Updated the entrypoint, verification prompts, fork rules and invariant guidance
+  consistently. Source/toolchain/fork pins, clean-clone artifacts and evidence
+  integrity gates remain required.
+- Clarified that ordinary suites, coverage and fuzz campaigns are opt-in, while
+  learning-only sessions remain read-only.
+
 ## [1.34.0] - 2026-10-02
 
 Selective adaptation of Pashov Solidity Auditor v4, X-Ray v2 and Fizz v1, verified
@@ -20,8 +31,8 @@ Capability update only; no audit ground truth or performance claim.
 - Preserved findings-blind model/stability passes. Conditioned repetition never
   boosts confidence, severity or proof; scan history does not suppress findings.
 - Added an execution-policy reference and inlined it into every fresh driver
-  subprocess. This user's EVM PoCs use the shared WSL runner; ordinary suites,
-  automatic coverage/fuzz campaigns and learning execution stay disabled.
+  subprocess. The original fixed-environment policy was superseded in v1.34.1;
+  coverage/fuzz campaigns are opt-in and learning-only sessions stay read-only.
   Driver artifacts now default to a sibling audit workspace; report prompts and
   gates resolve the external scratchpad, and in-clone output paths are rejected.
 - Included in-scope deployment/upgrade scripts in default discovery and preserved

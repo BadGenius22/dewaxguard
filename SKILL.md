@@ -11,9 +11,10 @@ allowed-tools: Bash(*) Read(*) Write(*) Grep(*) Glob(*) Agent(*)
 This skill supports the user's requested audit scope; loading or maintaining it
 does not start an audit. Read `rules/execution-policy.md` before any target build,
 coverage or PoC, and pass it to every worker, including driver subprocesses.
-Learning-only work cannot compile or execute the target. Ordinary suites remain
-disabled unless separately requested. This user's authorized EVM PoCs use the
-shared WSL runner with per-project pins and exact registered PoC paths.
+Learning-only sessions remain read-only. Ordinary suites, coverage and fuzz
+campaigns are opt-in. Authorized targeted PoCs use the execution environment
+permitted by the user's current request and runtime; record source/toolchain
+pins and exact selected PoC paths without prescribing a launcher.
 
 `PROJECT_ROOT` denotes the original protocol checkout. Resolve `SCRATCHPAD` to
 the audit workspace outside it (the driver defaults to a sibling directory).
@@ -85,7 +86,7 @@ If any check fails, RE-READ the missing file. Do not proceed.
 ╚═════╝ ╚══════╝ ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝
 ```
 
-**v1.34.0** — Multi-language smart contract security auditor combining three methodologies:
+**v1.34.1** — Multi-language smart contract security auditor combining three methodologies:
 - **8 Specialized Hacking Agents** (breadth) **+ 5 attacker-framing agents in thorough mode** (asymmetry, boundary, flow-gap, numerical-gap, trust-gap — v1.19.0)
 - **Nemesis Iterative Cross-Feed** (deep business logic + state inconsistency)
 - **Language-Specific Low-Level + Runtime Analysis** (what other auditors miss)

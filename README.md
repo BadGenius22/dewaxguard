@@ -103,7 +103,7 @@ In Codex, invoke `$dewaxguard` and include the mode, project path, or options in
 
 1. **Understand the project.** DewaxGuard reads the code, build setup, and available documentation.
 2. **Look for issues.** Specialized agents check areas such as permissions, math, state changes, and interactions with other contracts. Deeper modes add more checks.
-3. **Check possible findings.** The workflow traces the relevant code and validates authorized, targeted proofs of concept. In this user's EVM setup, registered PoCs use the shared WSL runner with pinned source, tools and chain state; ordinary test suites stay disabled unless separately requested.
+3. **Check possible findings.** The workflow traces the relevant code and validates authorized, targeted proofs of concept in the execution environment permitted by the user and runtime. Record source, tools and fork-state pins. Ordinary suites, coverage and fuzz campaigns are opt-in; learning-only sessions remain read-only.
 4. **Write the report.** It reviews findings against the selected platform's criteria and records what the audit did not cover.
 
 A finding is a lead to investigate, not a guarantee that an exploit works. Review the evidence and reproduce important findings before relying on the report.

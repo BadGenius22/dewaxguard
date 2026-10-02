@@ -57,7 +57,7 @@ unsupported dependency assumption stays unknown rather than being called safe.
 
 ## Turn a property into meaningful targeted validation
 
-These are design rules for a registered candidate PoC, not permission to run a
+These are design rules for an authorized candidate PoC, not permission to run a
 fuzz campaign. Read `rules/execution-policy.md` before any target execution.
 
 1. Select the smallest real action sequence that exercises the suspected

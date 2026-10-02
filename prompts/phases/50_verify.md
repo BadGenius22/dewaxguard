@@ -19,10 +19,11 @@
 
 Read `{{SKILL_ROOT}}/rules/execution-policy.md` and
 `{{SKILL_ROOT}}/references/invariant-provenance.md` before any candidate execution.
-Use only individually registered targeted PoCs through the shared WSL runner for
-this user's EVM setup. Ordinary suites and broad fuzz/coverage runs remain
-disabled. If execution is unavailable, preserve `needs_validation` / code-trace
-evidence instead of substituting a direct Windows Foundry or public RPC command.
+Use targeted candidate PoCs in the execution environment permitted by the user
+and runtime; record the toolchain and exact selected paths. Ordinary suites,
+coverage and fuzz campaigns are opt-in. If execution is unavailable, preserve
+`needs_validation` / code-trace evidence and the blocker. Do not bypass runtime
+restrictions or execute target code in a learning-only session.
 
 - `{{SCRATCHPAD}}/findings_routed.json` (inventory output)
 - `{{SCRATCHPAD}}/chain_hypotheses.md` (chain analysis output — chains get priority verification)
