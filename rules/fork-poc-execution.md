@@ -1,5 +1,10 @@
 # Phase 5c: Mainnet Fork PoC Execution Rules
 
+**Execution boundary:** read `rules/execution-policy.md` first. For this user's
+EVM setup, use the shared WSL runner with registered PoC paths and pinned fork
+state. Direct commands/public RPC examples below describe syntax only; they do
+not override the runner, learning-only restrictions or disabled ordinary suites.
+
 > **Purpose**: Mechanically prove findings on real deployed contracts. [FORK-PASS] is the strongest evidence.
 > **Trigger**: All findings with severity >= Medium
 > **Fallback**: If fork unavailable, use [POC-PASS] (unit test) or [CODE-TRACE] (manual)

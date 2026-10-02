@@ -24,6 +24,12 @@ Confirm with `ls {{SCRATCHPAD}}/` before proceeding. If anything is missing, **s
 
 ## Your task
 
+Read `{{SKILL_ROOT}}/references/invariant-provenance.md`. When property records
+exist in `protocol-model.md` or `invariant-extract.md`, use their IDs to connect
+cited writers, assumptions, failure witnesses and validation evidence. Carry
+unknown enforcement/dependency semantics into limitations. No property or prior
+agent agreement bypasses current claim/severity gates or the execution policy.
+
 Spawn 6 depth agents in parallel via the Task tool. The standard 4 (Plamen-style) focus on business logic; the 2 NEW agents focus on language and runtime semantics.
 
 ### Routing rule

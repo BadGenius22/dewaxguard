@@ -206,7 +206,7 @@ PHASES: list[Phase] = [
     Phase(
         name="report",
         template="60_report.md",
-        required_outputs=["AUDIT_REPORT.md"],
+        required_outputs=["scratchpad/AUDIT_REPORT.md"],
         timeout_seconds=1800,
         gates=["content_check"],
         model="sonnet",  # dispatcher; the Critical+High writer stays opus via 60_report.md
@@ -269,6 +269,10 @@ def _now_iso() -> str:
 # ── template instantiation ───────────────────────────────────────────────────
 def instantiate_template(template_path: Path, state: DriverState, phase: Phase, extra: dict | None = None) -> str:
     text = template_path.read_text(encoding="utf-8")
+    # Fresh backend subprocesses do not inherit the parent's execution policy.
+    # Inline it in every phase so examples/worker prompts cannot override it.
+    policy = (state.skill_root / "rules" / "execution-policy.md").read_text(encoding="utf-8")
+    text = "## Binding execution policy (applies to every delegated worker)\n\n" + policy + "\n\n" + text
     extra = extra or {}
     placeholders = {
         "MODE": state.mode,
@@ -547,7 +551,7 @@ def main(argv: list[str] | None = None) -> int:
                          "'premium advisor at decision points' pattern. See rules/model-tiering.md.")
     ap.add_argument("--skill-root", type=Path, default=skill_root_default)
     ap.add_argument("--scratchpad", type=Path, default=None,
-                    help="Scratchpad dir (default: <project_root>/scratchpad).")
+                    help="Scratchpad dir outside the clone (default: <project_root parent>/<project name>-audit/scratchpad).")
     ap.add_argument("--phase", action="append", default=None,
                     help="Only run these phases (can repeat).")
     ap.add_argument("--resume", action="store_true",
@@ -570,7 +574,10 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     project_root = (args.project_root or src.parent).resolve()
     audit_id = args.audit_id or f"{project_root.name}-{_dt.date.today().isoformat()}"
-    scratchpad = (args.scratchpad or (project_root / "scratchpad")).resolve()
+    scratchpad = (args.scratchpad or (project_root.parent / f"{project_root.name}-audit" / "scratchpad")).resolve()
+    if scratchpad.is_relative_to(project_root):
+        print("[driver] --scratchpad must be outside the original protocol checkout", file=sys.stderr)
+        return 2
 
     state = DriverState(
         mode=args.mode,

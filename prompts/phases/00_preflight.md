@@ -25,8 +25,8 @@ For each file below, check existence and record a 1-line summary. Use the Read t
 |------|------|-----------------|
 | Repo-specific instructions | `{{PROJECT_ROOT}}/CLAUDE.md` | scope boundaries, build commands, "Platform:" line if present, "Realism filter:" overrides |
 | Strategic plan | `{{PROJECT_ROOT}}/DEEP_DIVE_PLAN.md` | per-domain hypothesis lists, SCOPE_HINTs for breadth |
-| Within-audit knowledge | `{{PROJECT_ROOT}}/scratchpad/learned/00_MANIFEST.md` | F-/R-/D-/T-/L- entries (refuted hypotheses, learned lessons) |
-| Contest rules | `{{PROJECT_ROOT}}/scratchpad/CONTEST_FAQ.md` | platform, reward pools, scope clarifications |
+| Within-audit knowledge | `{{SCRATCHPAD}}/learned/00_MANIFEST.md` | F-/R-/D-/T-/L- entries (refuted hypotheses, learned lessons) |
+| Contest rules | `{{SCRATCHPAD}}/CONTEST_FAQ.md` | platform, reward pools, scope clarifications |
 | Third-party indices | `{{PROJECT_ROOT}}/context/KNOWN_ISSUES_INDEX_*.md` | upstream issues to dedup against |
 
 For each, record `PRESENT` or `ABSENT`. Do NOT fail preflight if files are absent — only the source path itself is required.
@@ -153,8 +153,8 @@ Write `{{SCRATCHPAD}}/preflight.md`:
 |------|------|--------|----------------|
 | CLAUDE.md | {{PROJECT_ROOT}}/CLAUDE.md | PRESENT/ABSENT | ... |
 | DEEP_DIVE_PLAN.md | {{PROJECT_ROOT}}/DEEP_DIVE_PLAN.md | ... | ... |
-| MANIFEST.md | {{PROJECT_ROOT}}/scratchpad/learned/00_MANIFEST.md | ... | ... |
-| CONTEST_FAQ.md | {{PROJECT_ROOT}}/scratchpad/CONTEST_FAQ.md | ... | ... |
+| MANIFEST.md | {{SCRATCHPAD}}/learned/00_MANIFEST.md | ... | ... |
+| CONTEST_FAQ.md | {{SCRATCHPAD}}/CONTEST_FAQ.md | ... | ... |
 | KNOWN_ISSUES_INDEX | {{PROJECT_ROOT}}/context/KNOWN_ISSUES_INDEX_*.md | ... | files found: <list> |
 
 ## V12 outputs (M-25 trigger)

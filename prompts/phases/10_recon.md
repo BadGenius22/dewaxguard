@@ -16,6 +16,13 @@
 
 ## Pre-requisites
 
+Read `{{SKILL_ROOT}}/references/invariant-provenance.md` for accounting, lifecycle
+or dependency targets. Augment existing maps with cited delta writes, storage
+guards and transitions. Include deployment/upgrade scripts allowed by engagement
+scope; skip generated `*.sol` directories. Explicit scope overrides discovery
+exclusions. Compilation/coverage follows the binding execution policy, never an
+automatic build command. Report missing execution artifacts as unknown.
+
 - `{{SCRATCHPAD}}/preflight.md` MUST exist (written by Phase 00). Read its "Language detection" section first — it determines which preprocessors and platform-quirks file to load.
 - `{{SRC_PATH}}` must exist and contain source files.
 

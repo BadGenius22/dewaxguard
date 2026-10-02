@@ -14,6 +14,13 @@
 
 ## Pre-requisites
 
+If scan receipts were explicitly enabled by the skill orchestrator, read
+`{{SKILL_ROOT}}/references/scan-workflow.md`. Attach the deterministic
+`pass-appendix.md` without rewriting its blocks; resolve conflicting dispositions
+through current validation evidence before assigning submission IDs. The driver
+does not itself launch loop passes or enable scan memory. Keep report artifacts
+outside the original clone under the user's workspace policy.
+
 - `{{SCRATCHPAD}}/findings_routed.json` — canonical findings + verdicts + severities
 - `{{SCRATCHPAD}}/verify_*.md` — per-finding verification verdicts + PoC results (skipped in `light`)
 - `{{SCRATCHPAD}}/dedup_clusters.json` — consolidation map
@@ -40,7 +47,7 @@ Count canonical findings in `findings_routed.json` to decide.
 
 ## STEP 2 (Strategy A) — Single-pass
 
-When chosen, produce the report directly. Read all required inputs, then write `{{PROJECT_ROOT}}/AUDIT_REPORT.md` following the structure in STEP 3 below.
+When chosen, produce the report directly. Read all required inputs, then write `{{SCRATCHPAD}}/AUDIT_REPORT.md` following the structure in STEP 3 below.
 
 ---
 
@@ -242,7 +249,7 @@ You are the Report Assembler. Merge the tier sections into the final report.
    d. No duplicate findings — no two sections describe the same bug
    e. Plain-English self-check passes (4-sentence shape, Impact has $/%, Recommendation has fix sentence + diff + result sentence)
 
-3. Write to {{PROJECT_ROOT}}/AUDIT_REPORT.md
+3. Write to {{SCRATCHPAD}}/AUDIT_REPORT.md
 
 4. Write quality check log to {{SCRATCHPAD}}/report_quality.md:
    # Report Quality Check
@@ -253,7 +260,7 @@ You are the Report Assembler. Merge the tier sections into the final report.
    - Plain-English style: PASS/<N violations>
    - Fixes applied: <list>
 
-SCOPE: write to {{PROJECT_ROOT}}/AUDIT_REPORT.md and {{SCRATCHPAD}}/report_quality.md only. Return 'DONE: report assembled, N findings, quality=PASS|ISSUES' and stop.
+SCOPE: write to {{SCRATCHPAD}}/AUDIT_REPORT.md and {{SCRATCHPAD}}/report_quality.md only. Return 'DONE: report assembled, N findings, quality=PASS|ISSUES' and stop.
 "
 )
 ```
@@ -434,7 +441,7 @@ If any check fails, fix the issue in the assembled output BEFORE writing AUDIT_R
 
 ## Required outputs (driver gate checks for these)
 
-- `{{PROJECT_ROOT}}/AUDIT_REPORT.md` — must contain Executive Summary + ≥ 3 of the severity-bucket sections (Critical/High/Medium/Low/Informational)
+- `{{SCRATCHPAD}}/AUDIT_REPORT.md` — must contain Executive Summary + ≥ 3 of the severity-bucket sections (Critical/High/Medium/Low/Informational)
 
 ## Retry hint (if any)
 

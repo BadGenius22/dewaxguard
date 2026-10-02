@@ -69,13 +69,18 @@ the invariants it does not assert. Note which invariants the fuzz harness actual
 ```
 ALLOWED INPUT:  source files in scope, protocol docs, docs-intent-map.md, invariant-extract.md
 FORBIDDEN INPUT: any findings file, analysis_*.md, findings_*.json, hypotheses, leads,
-                 prior-audit reports, known-issue indices, refuted/INDEX.md, patterns/
+                 prior-audit reports, known-issue indices, refuted/INDEX.md, patterns/,
+                 scan ledgers, memory-before.json and conditioned pass receipts
 ```
 
 The forbidden list is the point. The agent must not be able to pattern-match against a finding
 shape, because its job is to describe the intended system, not to hunt in it.
 
 **It produces `{SCRATCHPAD}/protocol-model.md`:**
+
+Use the property records in `references/invariant-provenance.md`: label spec,
+code-derived and exploratory bases separately; cite relevant writers and keep
+unknown enforcement distinct from absent enforcement.
 
 1. **Intent** — one paragraph: what is this protocol trying to be, in the words its own docs use.
 2. **Invariant ledger** — every statement that must always be true, each with either the `file:line`

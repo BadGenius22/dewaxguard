@@ -6,6 +6,20 @@ argument-hint: "[light|core|thorough] [path] [options]"
 allowed-tools: Bash(*) Read(*) Write(*) Grep(*) Glob(*) Agent(*)
 ---
 
+## Authorization and execution boundary
+
+This skill supports the user's requested audit scope; loading or maintaining it
+does not start an audit. Read `rules/execution-policy.md` before any target build,
+coverage or PoC, and pass it to every worker, including driver subprocesses.
+Learning-only work cannot compile or execute the target. Ordinary suites remain
+disabled unless separately requested. This user's authorized EVM PoCs use the
+shared WSL runner with per-project pins and exact registered PoC paths.
+
+`PROJECT_ROOT` denotes the original protocol checkout. Resolve `SCRATCHPAD` to
+the audit workspace outside it (the driver defaults to a sibling directory).
+Read existing in-clone audit artifacts as historical inputs when needed; write
+all new evidence and reports to the selected external workspace.
+
 ## MANDATORY Session-Start Preflight (NON-SKIPPABLE)
 
 > Before ANY audit work begins (recon, breadth, depth, verification, report), the orchestrator MUST read the following files in order. This is a hard rule — skipping any step is a workflow violation per the post-audit improvement protocol.
@@ -15,8 +29,8 @@ allowed-tools: Bash(*) Read(*) Write(*) Grep(*) Glob(*) Agent(*)
 **Step 1 — Project-local context** (skip if file does not exist; do NOT create):
 1. Project agent instructions: for example `{PROJECT_ROOT}/AGENTS.md` in Codex or `{PROJECT_ROOT}/CLAUDE.md` in Claude Code; read whichever files exist, including both if present. These define repo-specific scope rules, build/test commands, and audit boundaries.
 2. `{PROJECT_ROOT}/DEEP_DIVE_PLAN.md` — strategic plan for THIS audit (domain list, hypotheses, files-in-scope per domain, reward-pool framing). If present, this is the AUTHORITATIVE source for SCOPE_HINTs. Any SCOPE_HINT must derive from it (or explicitly note divergence with reasoning).
-3. `{PROJECT_ROOT}/scratchpad/learned/00_MANIFEST.md` — cumulative within-audit knowledge (F-/R-/D-/T-/L- entries). Pre-refutes hypotheses, shortcuts analysis. Read EVERY session, not just first.
-4. `{PROJECT_ROOT}/scratchpad/CONTEST_FAQ.md` — contest rules, reward pools, scope clarifications
+3. `{SCRATCHPAD}/learned/00_MANIFEST.md` — cumulative within-audit knowledge (F-/R-/D-/T-/L- entries). Pre-refutes hypotheses, shortcuts analysis. Read EVERY session, not just first; check the legacy in-clone location as historical input when applicable.
+4. `{SCRATCHPAD}/CONTEST_FAQ.md` — contest rules, reward pools, scope clarifications (or existing legacy location)
 5. `{PROJECT_ROOT}/context/KNOWN_ISSUES_INDEX_*.md` — third-party known-issue indices for dedup
 5a. `{PROJECT_ROOT}/*V12*-output.md` / `{PROJECT_ROOT}/*zellic*.md` — V12-style AI-auditor structured findings (if present, run `scripts/grep_v12.sh --count` to confirm presence, then `scripts/grep_v12.sh --invalid-only` to ingest the platform-knowledge corpus per **M-25**). MANDATORY when these files exist — V12 entries are out-of-scope per most contest rules and the `### Invalid Reason` sections are the highest-leverage platform-semantics reading.
 
@@ -71,7 +85,7 @@ If any check fails, RE-READ the missing file. Do not proceed.
 ╚═════╝ ╚══════╝ ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝
 ```
 
-**v1.33.0** — Multi-language smart contract security auditor combining three methodologies:
+**v1.34.0** — Multi-language smart contract security auditor combining three methodologies:
 - **8 Specialized Hacking Agents** (breadth) **+ 5 attacker-framing agents in thorough mode** (asymmetry, boundary, flow-gap, numerical-gap, trust-gap — v1.19.0)
 - **Nemesis Iterative Cross-Feed** (deep business logic + state inconsistency)
 - **Language-Specific Low-Level + Runtime Analysis** (what other auditors miss)
@@ -85,6 +99,13 @@ If any check fails, RE-READ the missing file. Do not proceed.
 > **Self-Improvement**: Ask the active skill invocation to `improve`, `batch-import`, `benchmark`, or `consolidate` (Claude Code examples use `/dewaxguard improve`, etc.).
 > **Languages**: Solidity, Rust/Solana, Rust/Soroban (Stellar), Move/Aptos, Move/Sui, C/C++ (native ledger nodes like rippled, Bitcoin Core), Go (L1 node clients)
 > **Platforms**: Code4rena, Sherlock, Cantina, Immunefi, HackenProof
+
+> **Repeated passes (v1.34.0, opt-in)**: `loop:N` adds findings-fed breadth passes;
+> `memory:true` independently enables historical identity tracking outside the
+> protocol clone. Read `references/scan-workflow.md` for the receipt helper and
+> final appendix. Default audits keep their existing pipeline. These are skill
+> orchestrator options, not new Python driver flags. Phase 2.5 and Phase 3.5 remain
+> blind; conditioned agreement does not raise evidence or confidence.
 
 ---
 
@@ -139,6 +160,12 @@ Phase 6:    Report (submission-ready) + MANDATORY "What this audit did not cover
 
 ## PHASE 1: RECONNAISSANCE
 
+For EVM default discovery, skip generated/build and dependency trees while
+including in-scope deployment, initialization and upgrade scripts. Discover
+actual files, not build directories named `*.sol`. Explicitly named files override
+discovery exclusions, subject to the user's engagement scope. Dependencies needed
+to establish a claim are supporting context, not silently expanded audit scope.
+
 Detect language automatically:
 
 | Indicator | Language |
@@ -190,10 +217,15 @@ Artifacts emitted under `$SCRATCHPAD`:
 
 - **1A (RAG probe)**: Tests `mcp__unified-vuln-db__validate_hypothesis` availability with a trivial call. Sets `RAG_TOOLS_AVAILABLE = true/false` in `build_status.md`. Fire-and-forget — Phase 4b.5 reads the flag.
 - **1B (Docs + External)**: Documentation review, fork ancestry, external program verification. Reads `docs-intent-map.md` (already emitted by Phase 1.0) and augments with judgment about which intent signals are load-bearing.
-- **2 (Build + Static)**: Compile, static analysis, grep vulnerability patterns. Cross-references `unsafe-map.md` (already emitted).
+- **2 (Build + Static)**: Inspect build/static artifacts and grep vulnerability patterns. Target compilation follows `rules/execution-policy.md`; when unauthorized or unavailable, record the blocker. Cross-references `unsafe-map.md` (already emitted).
 - **3 (Patterns + Surface)**: Attack surface mapping, pattern detection, template recommendations. Augments `auth-critical-files.txt` with per-protocol-type entries (e.g. lending → `pool-configurator/`, vault → `Vault.sol`).
 
 Output: 16+ scratchpad artifacts (Phase 1.0 maps + Phase 1.1 agent outputs).
+
+For accounting, lifecycle or external-dependency targets, read
+`references/invariant-provenance.md`: augment the existing maps with cited delta
+writes, storage guards, transitions and caller/callee assumptions. Optional Git
+signals prioritize source reading; they never establish vulnerability or safety.
 
 > **Tool-call budgets** (per `rules/agent-tool-budgets.md`): every breadth/depth/Nemesis agent operates under a hard Read/Grep cap. Cap defaults are halved in `light` mode, +50% on depth/validator agents in `thorough` mode. Agents end every output with a `budget:` receipt. Findings without `verified:` quotes downgrade to LEAD by default; see `rules/finding-output-format.md`.
 
@@ -214,6 +246,12 @@ Enumerate the repo's tests, map every in-scope entry point and every extracted i
 > Full spec: `rules/negative-space.md` → Phase 2.5.
 
 One agent builds the model of what the protocol is *trying* to be, and is **forbidden** from reading any findings file, `analysis_*.md`, hypothesis list, prior-audit report, known-issue index, `refuted/INDEX.md`, or `patterns/`. That restriction is the point: the agent must describe the intended system, not hunt inside it. Every other agent in this pipeline reads code with a finding list already in context, which is why this pass has to exist separately.
+
+Use the property-record contract from `references/invariant-provenance.md`:
+separate local guards from global/cross-system/economic claims, cite derivations
+and writers, and distinguish `SPEC-STATED`, `CODE-DERIVED` and `EXPLORATORY`.
+Enforcement and validation remain separate from priority. Unread writers or
+dependency semantics remain `UNKNOWN`. This agent receives no scan ledger.
 
 It emits `{SCRATCHPAD}/protocol-model.md`: protocol intent in the docs' own words, an **invariant ledger** (each with the `file:line` enforcing it or `NOT ENFORCED IN CODE`), a **value-outflow map** organised by protocol mechanic with the actor gate reaching each site, and any model-vs-code divergence it spots (which enters the finding stream as a normal LEAD).
 
@@ -255,6 +293,9 @@ Each agent uses `agents/hacking-agents/shared-rules.md` for output format, and m
 ---
 
 ## PHASE 3.5: BLIND RE-RUN (core/thorough)
+
+With `loop:N`, compare the first breadth pass only against the blind rerun.
+Findings-fed repeats and historical memory never enter this stability measure.
 
 > Full spec: `rules/negative-space.md` → Phase 3.5.
 
@@ -489,7 +530,12 @@ For each finding scored **< 85** by the bug validator:
 
 ## PHASE 6: REPORT
 
-Output: `AUDIT_REPORT.md` in project root.
+Output: `AUDIT_REPORT.md` in the audit workspace. For this user's clean-clone
+setup, keep reports, receipts and PoCs outside the original protocol checkout.
+When `loop:N` or `memory:true` is requested, assemble persisted receipts with
+`scripts/scan_records.py` and attach `pass-appendix.md` per
+`references/scan-workflow.md`. It preserves all dispositions and text variants;
+existing validation gates decide what becomes a final submission finding.
 
 Format: Platform-specific (C4 submission format, Sherlock format, etc.)
 
@@ -537,6 +583,8 @@ Either path also requires the `LEARNED_INDEX.md` growth-protocol steps (promote 
 | `network:{name}` | Set chain for fork testing (ethereum, arbitrum, base, solana, etc.) |
 | `platform:{name}` | Set judging platform (c4, sherlock, cantina, immunefi) |
 | `scope:{file}` | Limit audit scope |
+| `loop:N` | Opt-in 1-10 findings-fed breadth passes; persisted receipts, one validated union and final appendix (skill orchestrator only) |
+| `memory:true` | Opt-in prior-scan identity history outside the clone; no automatic verdict or suppression (skill orchestrator only) |
 | `proven-only:true` | Cap unproven findings at Low severity |
 
 ---

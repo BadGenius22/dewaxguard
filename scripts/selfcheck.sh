@@ -210,6 +210,13 @@ else
 fi
 [ $ie_fail -eq 0 ] && ok "importer runs on the sample corpus and leaks no identifying data"
 
+echo "== 15. Scan receipts (synthetic artifact checks, no target execution) =="
+if python3 scripts/check_scan_records.py; then
+  ok "scan receipt isolation, partial assembly, identity and history invariants"
+else
+  fail "scan receipt artifact checks failed"
+fi
+
 echo
 if [ $FAIL -eq 0 ]; then
   echo "SELFCHECK PASS — skill is internally consistent"

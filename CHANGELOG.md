@@ -1,5 +1,38 @@
 # DewaxGuard Changelog
 
+## [1.34.0] - 2026-10-02
+
+Selective adaptation of Pashov Solidity Auditor v4, X-Ray v2 and Fizz v1, verified
+against upstream `8ce544c9c9affab448d3dc4c79191d052e3a57ec` (2026-09-30).
+Capability update only; no audit ground truth or performance claim.
+
+- Added opt-in `loop:N` and independent `memory:true` to the skill orchestrator.
+  The new stdlib `scan_records.py` pins scope content, records immutable pass
+  receipts and assembles a lossless appendix with missing agents/passes,
+  conflicting dispositions and every distinct Markdown/fix variant. Historical
+  identities count once per scan; repeated assembly is idempotent. Existing
+  findings-table/parser/dedup/severity/claim gates still decide final findings.
+  The Python audit driver has no new loop/memory CLI flags.
+- Added traceable invariant records: basis, cited derivation/writers, enforcement,
+  actors/domain, failure witness and validation evidence. Recon/depth routing
+  adapts delta writes, guards, transitions, lifecycle and dependency analysis;
+  targeted validation design adds independent expectations and non-vacuity.
+- Preserved findings-blind model/stability passes. Conditioned repetition never
+  boosts confidence, severity or proof; scan history does not suppress findings.
+- Added an execution-policy reference and inlined it into every fresh driver
+  subprocess. This user's EVM PoCs use the shared WSL runner; ordinary suites,
+  automatic coverage/fuzz campaigns and learning execution stay disabled.
+  Driver artifacts now default to a sibling audit workspace; report prompts and
+  gates resolve the external scratchpad, and in-clone output paths are rejected.
+- Included in-scope deployment/upgrade scripts in default discovery and preserved
+  explicit-file requests. Mental tools now stay internal, following the latest
+  September 30 Pashov cleanup.
+- Corrected inherited explicit-narrowing-cast guidance (truncates, not overflow
+  revert), and removed consensus/partial-trace promotion that bypassed gates.
+- Recorded upstream provenance and the MIT notice in
+  `references/upstream-adaptations.md`. No extra agent catalogue, toolchain
+  installer, mandatory picker or upstream advertising was imported.
+
 ## [1.33.0] - 2026-08-06
 
 **Origin**: 0xSimao, "How I use AI in smart contract audits (2026)", 4 August 2026 (user-supplied article). Not a post-mortem — no ground truth was compared. This release encodes three claims from that article that the pipeline structurally violated, each confirmed absent by grep before the edit rather than assumed.

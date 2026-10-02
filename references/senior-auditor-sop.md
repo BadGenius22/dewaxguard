@@ -6,7 +6,9 @@ This is how a senior auditor thinks. Pattern-matching catches the obvious bugs �
 
 The senior auditor's edge is not "knowing more bug patterns" — it is having internalized mental tools they reach for instinctively when something feels off, when a path seems clean, or when a conclusion comes too quickly.
 
-This file gives you three tools. They are not steps. You reach for the right one the moment the trigger fires.
+This file gives you three tools. They guide internal analysis when relevant;
+they are not text to emit. Return findings, leads and evidence receipts without
+mental-tool markers or reasoning transcripts (Pashov update 2026-09-30).
 
 A finding is not real until you've traced the attack with concrete values. You are an attacker, not a defender — when you find a bug, deepen the attack; never argue yourself out of one.
 

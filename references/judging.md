@@ -45,7 +45,7 @@ Start at **100**, deduct: partial attack path **-20**, bounded non-compounding i
 ## Safe patterns (do not flag)
 
 - `unchecked` in 0.8+ (but verify the reasoning is correct)
-- Explicit narrowing casts in 0.8+ (reverts on overflow)
+- Checked conversion helpers can reject out-of-range values; inspect the actual helper. Explicit narrowing integer casts truncate high bits, including in Solidity 0.8+. Verify input bounds and downstream harm instead of treating the cast as a safe pattern. See [Solidity explicit conversions](https://docs.soliditylang.org/en/latest/types.html#explicit-conversions).
 - MINIMUM_LIQUIDITY burn on first deposit
 - SafeERC20 (`safeTransfer`/`safeTransferFrom`)
 - `nonReentrant` (only flag cross-contract attacks)
@@ -54,11 +54,12 @@ Start at **100**, deduct: partial attack path **-20**, bounded non-compounding i
 
 ## Lead promotion
 
-Before finalizing leads, promote where warranted:
-
-- **Cross-contract echo.** Same root cause confirmed as FINDING in one contract → promote in every contract where the identical pattern appears.
-- **Multi-agent convergence.** 2+ agents flagged same area, lead was demoted (not rejected) → promote to FINDING at confidence 75.
-- **Partial-path completion.** Only weakness is incomplete trace but path is reachable and unguarded → promote to FINDING at confidence 75, description only.
+Before gate evaluation, investigate high-signal leads. Cross-contract echoes and
+multiple-agent agreement prioritize source reading; they do not establish proof
+or assign a confidence score. Promote only after the complete reachable harm
+path is cited and the applicable claim, severity and execution-integrity gates
+pass. An incomplete path remains a LEAD / `needs_validation`. Never re-promote a
+REJECT/DEMOTE from the gate sequence by consensus or a historical scan tag.
 
 ## Leads
 

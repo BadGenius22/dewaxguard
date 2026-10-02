@@ -95,16 +95,35 @@ In Codex, invoke `$dewaxguard` and include the mode, project path, or options in
 | `docs:{url}` | Give DewaxGuard a documentation page to use during the review. |
 | `nodocs` | Skip documentation analysis. |
 | `scope:{file}` | Limit the review to specific files or contracts. |
+| `loop:N` | Repeat breadth analysis 1-10 times, then validate the combined results. Saves each pass and reports incomplete work. |
+| `memory:true` | Remember finding identities between scans in the audit workspace. Prior findings still need current evidence. |
 | `proven-only:true` | Keep findings without proof at Low severity or below. |
 
 ## 🧭 What happens during an audit?
 
 1. **Understand the project.** DewaxGuard reads the code, build setup, and available documentation.
 2. **Look for issues.** Specialized agents check areas such as permissions, math, state changes, and interactions with other contracts. Deeper modes add more checks.
-3. **Check possible findings.** The workflow traces the relevant code and may run a unit test or proof of concept. Where supported, it can test contract calls on a fork of a live chain.
+3. **Check possible findings.** The workflow traces the relevant code and validates authorized, targeted proofs of concept. In this user's EVM setup, registered PoCs use the shared WSL runner with pinned source, tools and chain state; ordinary test suites stay disabled unless separately requested.
 4. **Write the report.** It reviews findings against the selected platform's criteria and records what the audit did not cover.
 
 A finding is a lead to investigate, not a guarantee that an exploit works. Review the evidence and reproduce important findings before relying on the report.
+
+### Repeated passes and better invariants
+
+For example, request `$dewaxguard core loop:3 memory:true` in Codex or
+`/dewaxguard core loop:3 memory:true` in Claude Code. Later breadth passes see
+earlier observations so they can investigate other paths. The independent blind
+rerun stays separate; repeated agreement adds no proof or severity. Memory is
+opt-in and stored outside the protocol clone. These options use the skill
+orchestrator; the Python driver does not expose loop or memory flags.
+
+[Scan receipts](references/scan-workflow.md) preserve completed passes, missing
+agents, source hashes and every distinct finding/fix block. One appendix is
+assembled from those saved records. [Invariant provenance](references/invariant-provenance.md)
+connects protocol guarantees to cited state changes, assumptions and meaningful
+assertions. These changes adapt ideas from Pashov Solidity Auditor v4, X-Ray and
+Fizz; [source revisions and boundaries](references/upstream-adaptations.md) are
+recorded for future maintenance.
 
 ## 🌐 Supported codebases
 
@@ -118,7 +137,8 @@ A finding is a lead to investigate, not a guarantee that an exploit works. Revie
 | C/C++ node code | Memory safety, serialization, and consensus edge cases. |
 | Go node code | Consensus rules, nondeterministic behavior, networking, and mempool handling. |
 
-For native node code, verification may use unit tests because a chain fork is not always available.
+For native node code, retain source evidence when execution is unavailable.
+Ordinary unit suites still require a separate user request.
 
 ## ⚙️ Advanced: run the Python driver
 
@@ -144,13 +164,21 @@ python3 "$HOME/.claude/skills/dewaxguard/scripts/dewaxguard_driver.py" --mode th
 
 The driver can choose different models for different phases. See [model tiering](rules/model-tiering.md) for details.
 
+By default, the driver stores artifacts in a sibling
+`<project-name>-audit/scratchpad` directory and writes `AUDIT_REPORT.md` there.
+Use `--scratchpad /path/to/audit-workspace/scratchpad` to choose an existing
+workspace outside the protocol clone. Existing runs must select that same
+external scratchpad with `--resume`; checkpoints inside the clone are rejected.
+Old checkpoints are not moved automatically; preserve and migrate existing
+artifacts to the chosen workspace before resuming.
+
 ### Recon tools
 
 The repository also includes scripts that prepare code maps before an audit. Run these from the DewaxGuard checkout, replacing `./contracts` with the path to the code you want to review:
 
 ```bash
 scripts/build_recon_maps.sh --lang stellar --src ./contracts --out ./scratchpad --docs .
-python3 scripts/squeezers/squeezer_rust.py --collapse-bodies --numbered contracts/**/*.rs > ./scratchpad/core-minified.rs
+python3 scripts/squeezers/squeezer_rust.py --collapse-bodies --numbered /path/to/clone/contracts/**/*.rs > /path/to/audit-workspace/scratchpad/core-minified.rs
 ```
 
 The first command maps areas such as authorization, state changes, and integrations. The second makes a shorter copy of Rust source for agent context. See [documentation intent](rules/docs-intent-map.md), [authorization checks](rules/auth-critical-files.md), and [agent tool budgets](rules/agent-tool-budgets.md) for how the workflow uses these files.
